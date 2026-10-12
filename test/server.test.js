@@ -212,3 +212,13 @@ test('rejects file URLs and invalid decision payloads', async t => {
   assert.equal((await f.call('/api/links', { workspace: '/tmp/project', pr: 'file:///etc/passwd', preview: '' })).status, 400);
   assert.equal((await f.call('/api/decision', { id: 'x', decision: 'always' })).status, 400);
 });
+
+test('details reads the current screen of the exact session only', async t => {
+  const f = await fixture(t);
+  const ok = await (await f.call('/api/details', { handle: 'term_live', incarnationId: 'inc_live' })).json();
+  assert.deepEqual(ok.screen, ['Ready for your prompt']);
+  assert.equal(ok.agent.project, 'project');
+  assert.deepEqual(f.calls.at(-1), ['terminal', 'read', '--terminal', 'term_live', '--screen']);
+  assert.equal((await f.call('/api/details', { handle: 'term_live', incarnationId: 'old' })).status, 409);
+  assert.equal((await f.call('/api/details', { handle: 'term_live', incarnationId: 'inc_live' }, 'wrong')).status, 401);
+});

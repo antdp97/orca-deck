@@ -15,6 +15,7 @@
   <symbol id="i-swap" viewBox="0 0 24 24"><path d="M8 3 4 7l4 4M4 7h16M16 21l4-4-4-4M20 17H4"/></symbol>
   <symbol id="i-pr" viewBox="0 0 24 24"><circle cx="18" cy="18" r="3"/><circle cx="6" cy="6" r="3"/><path d="M13 6h3a2 2 0 0 1 2 2v7M6 9v12"/></symbol>
   <symbol id="i-monitor" viewBox="0 0 24 24"><rect width="20" height="14" x="2" y="3" rx="2"/><path d="M8 21h8M12 17v4"/></symbol>
+  <symbol id="i-terminal" viewBox="0 0 24 24"><path d="m4 17 6-6-6-6M12 19h8"/></symbol>
   <symbol id="i-link" viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></symbol>
   <symbol id="i-grid" viewBox="0 0 24 24"><rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/></symbol>
   <symbol id="i-left" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></symbol>
@@ -34,6 +35,7 @@
     <header id="bar">
       <span id="dot" role="img" aria-label="Chưa kết nối"></span>
       <button id="agentButton" class="agent-button" aria-label="Chọn agent"><span><strong id="agentTitle">Chọn agent</strong><small id="project"></small></span><svg class="icon"><use xlink:href="#i-down"/></svg></button>
+      <button id="detailsButton" class="icon-button" aria-label="Chi tiết phiên"><svg class="icon"><use xlink:href="#i-terminal"/></svg></button>
       <button id="linksButton" class="icon-button" aria-label="Đặt liên kết"><svg class="icon"><use xlink:href="#i-link"/></svg></button>
       <button id="editButton" class="icon-button" aria-label="Sửa bố cục"><svg class="icon"><use xlink:href="#i-grid"/></svg></button>
     </header>
@@ -65,6 +67,7 @@
   <p id="message" role="status" aria-live="polite"></p>
 </main>
 <div id="agentModal" class="modal" hidden><section class="modal-card"><div class="modal-heading"><h2>Agent</h2><button class="icon-button close" aria-label="Đóng"><svg class="icon"><use xlink:href="#i-x"/></svg></button></div><div id="agentList"></div></section></div>
+<div id="detailsModal" class="modal" hidden><section class="modal-card tall"><div class="modal-heading"><h2 id="detailsTitle"></h2><button class="icon-button close" aria-label="Đóng"><svg class="icon"><use xlink:href="#i-x"/></svg></button></div><p id="detailsMeta" class="meta"></p><pre id="detailsScreen" class="screen"></pre></section></div>
 <div id="linksModal" class="modal" hidden><section class="modal-card"><div class="modal-heading"><h2>Liên kết</h2><button class="icon-button close" aria-label="Đóng"><svg class="icon"><use xlink:href="#i-x"/></svg></button></div><form id="linksForm"><label for="prUrl">PR</label><input id="prUrl" type="url" placeholder="https://github.com/…/pull/…"><label for="previewUrl">Preview</label><input id="previewUrl" type="url" placeholder="http://localhost:3000"><button type="submit" class="primary">Lưu</button></form></section></div>
 <script src="/app.js"></script>
 </body></html>

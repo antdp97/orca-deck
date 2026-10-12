@@ -1,6 +1,6 @@
 (function () {
   'use strict';
-  var token = '', state = null, selected = null, selectedRequest = '', requestChosen = false, busy = false, polling = false, timer = 0;
+  var token = '', state = null, selected = null, selectedRequest = '', requestChosen = false, busy = false, polling = false, timer = 0, detailsLoading = false;
   var KEYS = ['approve', 'reject', 'continue', 'interrupt', 'mainClaude', 'choose', 'pr', 'preview'], layout, editing = false, picked = '';
   var $ = function (id) { return document.getElementById(id); };
   try { token = localStorage.getItem('orcaDeckToken') || ''; } catch (e) {}
@@ -59,6 +59,7 @@
     for (var i = 0; i < ids.length; i++) $(ids[i]).disabled = busy || !a;
     $('choose').disabled = $('mainClaude').disabled = $('agentButton').disabled = busy;
     $('linksButton').disabled = busy || !a;
+    $('detailsButton').disabled = !a;
   }
   function render() {
     var a = agent(), r;
@@ -95,6 +96,7 @@
       connected(true); state = result;
       if (state.orcaError) message(state.orcaError);
       render();
+      if (!$('detailsModal').hidden) { if (agent()) showDetails(); else $('detailsModal').hidden = true; }
     });
   }
   function action(name, target, after) {
@@ -140,6 +142,25 @@
     });
     $('agentModal').hidden = false;
   }
+  function loadDetails() {
+    var a = agent(); if (!a || detailsLoading) return;
+    detailsLoading = true;
+    api('details', { handle: a.handle, incarnationId: a.incarnationId }, function (err, result) {
+      detailsLoading = false;
+      if ($('detailsModal').hidden) return;
+      var screen = $('detailsScreen'), atBottom = screen.scrollTop + screen.clientHeight >= screen.scrollHeight - 20;
+      screen.textContent = err ? err.message : result.screen.join('\n') || '—';
+      if (atBottom) screen.scrollTop = screen.scrollHeight;
+    });
+  }
+  function showDetails() {
+    var a = agent(); if (!a) return;
+    var waiting = state.requests.filter(function (q) { return q.workspace === a.workspace; }).length;
+    $('detailsTitle').textContent = a.title;
+    $('detailsMeta').textContent = a.agent + ' · ' + a.workspace + (waiting ? ' · ' + waiting + ' chờ duyệt' : '');
+    if ($('detailsModal').hidden) { $('detailsScreen').textContent = '…'; $('detailsModal').hidden = false; }
+    loadDetails();
+  }
   function editLinks() {
     var a = agent(); if (!a) return;
     var links = state.links[a.workspace] || {};
@@ -172,6 +193,7 @@
   KEYS.forEach(function (id) { $(id).onclick = function () { if (editing) { picked = id; applyLayout(); } else handlers[id](); }; });
   $('agentButton').onclick = chooseAgents;
   $('linksButton').onclick = editLinks;
+  $('detailsButton').onclick = showDetails;
   $('editButton').onclick = function () { editing = true; picked = ''; applyLayout(); };
   $('editDone').onclick = function () { editing = false; picked = ''; applyLayout(); if (state) render(); };
   $('moveLeft').onclick = function () { move(-1); };
@@ -186,8 +208,8 @@
     });
   };
   var closes = document.querySelectorAll('.close');
-  for (var i = 0; i < closes.length; i++) closes[i].onclick = function () { $('agentModal').hidden = $('linksModal').hidden = true; };
-  ['agentModal', 'linksModal'].forEach(function (id) { $(id).onclick = function (event) { if (event.target === this) this.hidden = true; }; });
+  for (var i = 0; i < closes.length; i++) closes[i].onclick = function () { $('agentModal').hidden = $('linksModal').hidden = $('detailsModal').hidden = true; };
+  ['agentModal', 'linksModal', 'detailsModal'].forEach(function (id) { $(id).onclick = function (event) { if (event.target === this) this.hidden = true; }; });
   $('unpair').onclick = function () { token = ''; state = null; selected = null; try { localStorage.removeItem('orcaDeckToken'); } catch (e) {} showPair(); };
   document.addEventListener('visibilitychange', function () { if (!document.hidden) poll(); });
   applyLayout(); showPair(); poll(); setInterval(poll, 2000);

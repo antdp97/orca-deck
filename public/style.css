@@ -67,6 +67,9 @@ pre{white-space:pre-wrap;word-break:break-word;color:#e4dccb;font-family:Menlo,m
 .agent-row .icon-button{height:auto;min-height:60px;width:60px}
 .pinned{background:#b5e895;border-color:#b5e895;color:#182318}
 .current{border-color:#b6e989}
+.meta{margin:0 0 12px;font-size:14px;color:#9aac9e;word-break:break-word}
+.tall{height:88%;display:flex;flex-direction:column;overflow:hidden}
+.screen{max-height:none;flex:1;min-height:0;margin:0;padding:12px;background:#0b0e0e;border:1px solid #303839;border-radius:10px;font-size:12px;color:#d6dcd8}
 .empty{color:#9aac9e;text-align:center;padding:24px 0}
 .sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)}
 [hidden]{display:none!important}

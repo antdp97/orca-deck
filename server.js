@@ -153,6 +153,12 @@ function createDeck({ config, orca = runOrca, saveConfig = () => {}, requestTime
         saveConfig();
         return send(res, 200, { ok: true });
       }
+      if (route === '/api/details') {
+        const agent = (await terminals()).find(t => t.handle === body.handle && t.incarnationId === body.incarnationId);
+        if (!agent) throw failure(409, 'Phiên agent đã thay đổi. Hãy chọn lại.');
+        const output = await orca(['terminal', 'read', '--terminal', agent.handle, '--screen']);
+        return send(res, 200, { agent, screen: output.terminal?.tail || [] });
+      }
       if (route === '/api/action') {
         if (!['focus', 'continue', 'interrupt', 'pin', 'pr', 'preview'].includes(body.action)) throw failure(400, 'Nút không hợp lệ.');
         const controller = new AbortController();
