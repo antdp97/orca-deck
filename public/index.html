@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><meta name="apple-mobile-web-app-title" content="Orca Deck">
+<title>Orca Deck</title><link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<main>
+  <header><div><span class="eyebrow">MAC MINI / CONTROL SURFACE</span><h1>Orca <span>Deck</span></h1></div><div class="connection"><span id="dot"></span><span id="connection">Chưa kết nối</span></div></header>
+  <section id="pair" class="panel">
+    <h2>Kết nối với Mac</h2><p>Nhập mã 8 chữ số hiện trong cửa sổ Orca Deck trên Mac. iPad và Mac dùng cùng mạng Wi‑Fi.</p>
+    <form id="pairForm"><label for="pin">Mã ghép nối</label><div class="pair-row"><input id="pin" type="text" inputmode="numeric" pattern="[0-9]{8}" maxlength="8" autocomplete="off" required><button type="submit">Kết nối</button></div></form>
+  </section>
+  <div id="deck" hidden>
+    <section class="context panel"><div><span class="eyebrow">TERMINAL ĐANG CHỌN</span><h2 id="agentTitle">Chọn agent để bắt đầu</h2><p id="project">—</p></div><button class="small" id="linksButton">Đặt liên kết</button></section>
+    <section class="request panel"><div class="request-heading"><span class="eyebrow">YÊU CẦU DUYỆT CLAUDE</span><span id="requestCount" class="badge">0 đang chờ</span></div>
+      <label class="sr-only" for="requestSelect">Chọn yêu cầu duyệt</label><select id="requestSelect"><option value="">Không có yêu cầu đang chờ</option></select>
+      <div id="requestMeta">Approve / Reject áp dụng đúng yêu cầu hiển thị ở đây.</div><pre id="requestInput">Khi Claude cần quyền, yêu cầu sẽ xuất hiện tại đây.</pre>
+    </section>
+    <section class="buttons" aria-label="Bảng điều khiển">
+      <button id="approve" class="key approve" disabled><span class="symbol">✓</span><strong>Approve once</strong><small>Duyệt yêu cầu hiển thị</small></button>
+      <button id="reject" class="key reject" disabled><span class="symbol">×</span><strong>Reject</strong><small>Từ chối yêu cầu hiển thị</small></button>
+      <button id="continue" class="key" disabled><span class="symbol">▷</span><strong>Continue</strong><small>Gửi tiếp tục cho agent</small></button>
+      <button id="interrupt" class="key" disabled><span class="symbol">□</span><strong>Interrupt</strong><small>Ngắt agent đang chọn</small></button>
+      <button id="mainClaude" class="key"><span class="symbol">✳</span><strong>Claude chính</strong><small>Về phiên orchestrator</small></button>
+      <button id="choose" class="key"><span class="symbol">⇄</span><strong>Chọn agent</strong><small>Claude / Codex trong Orca</small></button>
+      <button id="pr" class="key" disabled><span class="symbol">↗</span><strong>Mở PR</strong><small>Mở trên Mac</small></button>
+      <button id="preview" class="key" disabled><span class="symbol">◉</span><strong>Mở preview</strong><small>Mở trên Mac</small></button>
+    </section>
+    <footer><span>Safari iOS 12 · Điều khiển qua mạng nội bộ</span><button id="unpair" class="text-button">Ngắt ghép nối</button></footer>
+  </div>
+  <p id="message" role="status" aria-live="polite"></p>
+</main>
+<div id="agentModal" class="modal" hidden><section class="modal-card"><div class="modal-heading"><h2>Chọn agent</h2><button class="small close">Đóng</button></div><p>Chạm một phiên để đưa terminal lên màn hình Mac. Ghim phiên Claude orchestrator bằng nút “Claude chính”.</p><div id="agentList"></div></section></div>
+<div id="linksModal" class="modal" hidden><section class="modal-card"><div class="modal-heading"><h2>Liên kết trên Mac</h2><button class="small close">Đóng</button></div><form id="linksForm"><label for="prUrl">PR của project</label><input id="prUrl" type="url" placeholder="https://github.com/…/pull/…"><label for="previewUrl">Preview của project</label><input id="previewUrl" type="url" placeholder="http://localhost:3000"><button type="submit">Lưu liên kết</button></form></section></div>
+<script src="/app.js"></script>
+</body></html>
