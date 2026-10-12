@@ -6,33 +6,65 @@
 <title>Orca Deck</title><link rel="stylesheet" href="/style.css">
 </head>
 <body>
+<svg class="sprite" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></symbol>
+  <symbol id="i-play" viewBox="0 0 24 24"><path d="M6 3l14 9-14 9z"/></symbol>
+  <symbol id="i-stop" viewBox="0 0 24 24"><rect width="14" height="14" x="5" y="5" rx="2"/></symbol>
+  <symbol id="i-star" viewBox="0 0 24 24"><path d="M12 4v16M5.07 8l13.86 8M5.07 16l13.86-8"/></symbol>
+  <symbol id="i-swap" viewBox="0 0 24 24"><path d="M8 3 4 7l4 4M4 7h16M16 21l4-4-4-4M20 17H4"/></symbol>
+  <symbol id="i-pr" viewBox="0 0 24 24"><circle cx="18" cy="18" r="3"/><circle cx="6" cy="6" r="3"/><path d="M13 6h3a2 2 0 0 1 2 2v7M6 9v12"/></symbol>
+  <symbol id="i-monitor" viewBox="0 0 24 24"><rect width="20" height="14" x="2" y="3" rx="2"/><path d="M8 21h8M12 17v4"/></symbol>
+  <symbol id="i-link" viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></symbol>
+  <symbol id="i-grid" viewBox="0 0 24 24"><rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/></symbol>
+  <symbol id="i-left" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></symbol>
+  <symbol id="i-right" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></symbol>
+  <symbol id="i-down" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+  <symbol id="i-eye" viewBox="0 0 24 24"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></symbol>
+  <symbol id="i-reset" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></symbol>
+  <symbol id="i-logout" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></symbol>
+  <symbol id="i-pin" viewBox="0 0 24 24"><path d="M12 17v5M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/></symbol>
+</svg>
 <main>
-  <header><div><span class="eyebrow">MAC MINI / CONTROL SURFACE</span><h1>Orca <span>Deck</span></h1></div><div class="connection"><span id="dot"></span><span id="connection">Chưa kết nối</span></div></header>
-  <section id="pair" class="panel">
-    <h2>Kết nối với Mac</h2><p>Nhập mã 8 chữ số hiện trong cửa sổ Orca Deck trên Mac. iPad và Mac dùng cùng mạng Wi‑Fi.</p>
-    <form id="pairForm"><label for="pin">Mã ghép nối</label><div class="pair-row"><input id="pin" type="text" inputmode="numeric" pattern="[0-9]{8}" maxlength="8" autocomplete="off" required><button type="submit">Kết nối</button></div></form>
+  <section id="pair">
+    <h1>Orca Deck</h1>
+    <form id="pairForm"><label for="pin">Mã ghép nối</label><input id="pin" type="text" inputmode="numeric" pattern="[0-9]{8}" maxlength="8" autocomplete="off" required><button type="submit" class="primary">Kết nối</button></form>
   </section>
   <div id="deck" hidden>
-    <section class="context panel"><div><span class="eyebrow">TERMINAL ĐANG CHỌN</span><h2 id="agentTitle">Chọn agent để bắt đầu</h2><p id="project">—</p></div><button class="small" id="linksButton">Đặt liên kết</button></section>
-    <section class="request panel"><div class="request-heading"><span class="eyebrow">YÊU CẦU DUYỆT CLAUDE</span><span id="requestCount" class="badge">0 đang chờ</span></div>
-      <label class="sr-only" for="requestSelect">Chọn yêu cầu duyệt</label><select id="requestSelect"><option value="">Không có yêu cầu đang chờ</option></select>
-      <div id="requestMeta">Approve / Reject áp dụng đúng yêu cầu hiển thị ở đây.</div><pre id="requestInput">Khi Claude cần quyền, yêu cầu sẽ xuất hiện tại đây.</pre>
+    <header id="bar">
+      <span id="dot" role="img" aria-label="Chưa kết nối"></span>
+      <button id="agentButton" class="agent-button" aria-label="Chọn agent"><span><strong id="agentTitle">Chọn agent</strong><small id="project"></small></span><svg class="icon"><use xlink:href="#i-down"/></svg></button>
+      <button id="linksButton" class="icon-button" aria-label="Đặt liên kết"><svg class="icon"><use xlink:href="#i-link"/></svg></button>
+      <button id="editButton" class="icon-button" aria-label="Sửa bố cục"><svg class="icon"><use xlink:href="#i-grid"/></svg></button>
+    </header>
+    <header id="editBar" hidden>
+      <button id="moveLeft" class="icon-button" aria-label="Chuyển trước"><svg class="icon"><use xlink:href="#i-left"/></svg></button>
+      <button id="moveRight" class="icon-button" aria-label="Chuyển sau"><svg class="icon"><use xlink:href="#i-right"/></svg></button>
+      <button id="toggleKey" class="icon-button" aria-label="Ẩn / hiện nút"><svg class="icon"><use xlink:href="#i-eye"/></svg></button>
+      <span class="spacer"></span>
+      <button id="resetLayout" class="icon-button" aria-label="Bố cục mặc định"><svg class="icon"><use xlink:href="#i-reset"/></svg></button>
+      <button id="unpair" class="icon-button danger" aria-label="Ngắt ghép nối"><svg class="icon"><use xlink:href="#i-logout"/></svg></button>
+      <button id="editDone" class="primary">Xong</button>
+    </header>
+    <section id="request" class="request" hidden>
+      <div class="request-heading"><strong id="requestTool"></strong><span id="requestMeta"></span><span id="requestCount" class="badge"></span></div>
+      <label class="sr-only" for="requestSelect">Chọn yêu cầu duyệt</label><select id="requestSelect"></select>
+      <pre id="requestInput"></pre>
     </section>
-    <section class="buttons" aria-label="Bảng điều khiển">
-      <button id="approve" class="key approve" disabled><span class="symbol">✓</span><strong>Approve once</strong><small>Duyệt yêu cầu hiển thị</small></button>
-      <button id="reject" class="key reject" disabled><span class="symbol">×</span><strong>Reject</strong><small>Từ chối yêu cầu hiển thị</small></button>
-      <button id="continue" class="key" disabled><span class="symbol">▷</span><strong>Continue</strong><small>Gửi tiếp tục cho agent</small></button>
-      <button id="interrupt" class="key" disabled><span class="symbol">□</span><strong>Interrupt</strong><small>Ngắt agent đang chọn</small></button>
-      <button id="mainClaude" class="key"><span class="symbol">✳</span><strong>Claude chính</strong><small>Về phiên orchestrator</small></button>
-      <button id="choose" class="key"><span class="symbol">⇄</span><strong>Chọn agent</strong><small>Claude / Codex trong Orca</small></button>
-      <button id="pr" class="key" disabled><span class="symbol">↗</span><strong>Mở PR</strong><small>Mở trên Mac</small></button>
-      <button id="preview" class="key" disabled><span class="symbol">◉</span><strong>Mở preview</strong><small>Mở trên Mac</small></button>
+    <section id="keys" class="keys" aria-label="Bảng điều khiển">
+      <button id="approve" class="key approve" aria-label="Approve once" disabled><svg class="icon"><use xlink:href="#i-check"/></svg><strong>Approve</strong></button>
+      <button id="reject" class="key reject" disabled><svg class="icon"><use xlink:href="#i-x"/></svg><strong>Reject</strong></button>
+      <button id="continue" class="key" disabled><svg class="icon"><use xlink:href="#i-play"/></svg><strong>Continue</strong></button>
+      <button id="interrupt" class="key" disabled><svg class="icon"><use xlink:href="#i-stop"/></svg><strong>Interrupt</strong></button>
+      <button id="mainClaude" class="key"><svg class="icon"><use xlink:href="#i-star"/></svg><strong>Claude chính</strong></button>
+      <button id="choose" class="key"><svg class="icon"><use xlink:href="#i-swap"/></svg><strong>Agent</strong></button>
+      <button id="pr" class="key" aria-label="Mở PR" disabled><svg class="icon"><use xlink:href="#i-pr"/></svg><strong>PR</strong></button>
+      <button id="preview" class="key" aria-label="Mở preview" disabled><svg class="icon"><use xlink:href="#i-monitor"/></svg><strong>Preview</strong></button>
     </section>
-    <footer><span>Safari iOS 12 · Điều khiển qua mạng nội bộ</span><button id="unpair" class="text-button">Ngắt ghép nối</button></footer>
   </div>
   <p id="message" role="status" aria-live="polite"></p>
 </main>
-<div id="agentModal" class="modal" hidden><section class="modal-card"><div class="modal-heading"><h2>Chọn agent</h2><button class="small close">Đóng</button></div><p>Chạm một phiên để đưa terminal lên màn hình Mac. Ghim phiên Claude orchestrator bằng nút “Claude chính”.</p><div id="agentList"></div></section></div>
-<div id="linksModal" class="modal" hidden><section class="modal-card"><div class="modal-heading"><h2>Liên kết trên Mac</h2><button class="small close">Đóng</button></div><form id="linksForm"><label for="prUrl">PR của project</label><input id="prUrl" type="url" placeholder="https://github.com/…/pull/…"><label for="previewUrl">Preview của project</label><input id="previewUrl" type="url" placeholder="http://localhost:3000"><button type="submit">Lưu liên kết</button></form></section></div>
+<div id="agentModal" class="modal" hidden><section class="modal-card"><div class="modal-heading"><h2>Agent</h2><button class="icon-button close" aria-label="Đóng"><svg class="icon"><use xlink:href="#i-x"/></svg></button></div><div id="agentList"></div></section></div>
+<div id="linksModal" class="modal" hidden><section class="modal-card"><div class="modal-heading"><h2>Liên kết</h2><button class="icon-button close" aria-label="Đóng"><svg class="icon"><use xlink:href="#i-x"/></svg></button></div><form id="linksForm"><label for="prUrl">PR</label><input id="prUrl" type="url" placeholder="https://github.com/…/pull/…"><label for="previewUrl">Preview</label><input id="previewUrl" type="url" placeholder="http://localhost:3000"><button type="submit" class="primary">Lưu</button></form></section></div>
 <script src="/app.js"></script>
 </body></html>
