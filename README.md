@@ -44,9 +44,9 @@ flowchart LR
 ## Setup
 
 1. Double-click `Start.command` (or run `npm start`) and keep that window open. Only run one copy.
-2. On the iPad, open the **"Trên iPad"** address printed in the window, e.g. `http://192.168.1.20:8766`. It can change when the Mac changes networks.
+2. On the iPad, open the **"Trên iPad"** ("on iPad") address printed in the window (the server console is in Vietnamese), e.g. `http://192.168.1.20:8766`. It can change when the Mac changes networks.
 3. Enter the 8-digit pairing code from the same window. The code is only shown there; the API never returns it.
-4. Tap the agent bar at the top (or the **Agent** key), then tap the pin icon next to the Claude session you use as your orchestrator. The **Claude chính** ("main Claude") key always brings that session to the front on the Mac.
+4. Tap the agent bar at the top (or the **Agent** key), then tap the pin icon next to the Claude session you use as your orchestrator. The **Main Claude** key always brings that session to the front on the Mac.
 5. Tap the link icon to save a PR URL and a preview URL for the current project. The **PR** / **Preview** keys open them in the Mac's default browser (including `http://localhost:3000`).
 6. Install the approval hook (it keeps your existing hooks and settings and backs up `settings.json` first):
 
@@ -70,15 +70,15 @@ Tip: In Safari, use Share → Add to Home Screen for a full-screen app, and turn
 | **Reject** | Denies the selected request. |
 | **Continue** | Types `continue` + Enter into the selected agent, only if its terminal is idle and no approval prompt is on screen. |
 | **Interrupt** | Sends an interrupt to the selected agent through Orca. |
-| **Claude chính** | Focuses your pinned orchestrator session on the Mac. |
+| **Main Claude** | Focuses your pinned orchestrator session on the Mac. |
 | **Agent** | Lists running Claude/Codex terminals; tap one to focus it on the Mac, or pin a Claude session. |
 | **PR / Preview** | Opens the project's saved link on the Mac (HTTP/HTTPS only). |
 
 **Session details** (terminal icon): shows the selected agent's workspace and its current terminal screen, refreshed every 2 seconds while open. Use it to see what an agent is doing before you approve or continue.
 
-**Edit layout** (grid icon): tap a key, then use ‹ › to move it, the eye to hide or show it, ↺ to reset, and **Xong** ("done") to save. The layout is stored in the browser on that device. The unpair button is also here, so it's hard to hit by accident.
+**Edit layout** (grid icon): tap a key, then use ‹ › to move it, the eye to hide or show it, ↺ to reset, and **Done** to save. The layout is stored in the browser on that device. The unpair button is also here, so it's hard to hit by accident.
 
-The UI labels are in Vietnamese; the main keys use English action names.
+**Language:** the UI is available in English and Vietnamese. It follows the device language on first open; switch with the globe button on the pairing screen or in edit layout. The choice is saved on that device, and server error messages follow it too. To add a language, add a block to `TEXT` in `public/app.js` and to `EN`-style messages in `server.js`.
 
 ## Security
 

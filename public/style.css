@@ -18,7 +18,11 @@ label{display:block;font-size:14px;color:#abbcb0}
 /* Pair */
 #pair{margin:auto;width:100%;max-width:380px}
 #pin{letter-spacing:8px;font-size:28px;text-align:center}
-#pair button{width:100%}
+#pair .primary{width:100%}
+.lang-button{width:auto;padding:0 14px}
+.lang-button .icon{margin-right:6px}
+#pair .lang-button{margin:16px auto 0}
+.lang-code{font-size:14px;font-weight:600}
 #deck{flex:1;display:flex;flex-direction:column;min-height:0}
 /* Top bar */
 header{display:flex;align-items:center;margin-bottom:12px;flex-shrink:0}

@@ -3,9 +3,47 @@
   var token = '', state = null, selected = null, selectedRequest = '', requestChosen = false, busy = false, polling = false, timer = 0, detailsLoading = false;
   var KEYS = ['approve', 'reject', 'continue', 'interrupt', 'mainClaude', 'choose', 'pr', 'preview'], layout, editing = false, picked = '';
   var $ = function (id) { return document.getElementById(id); };
+  var TEXT = {
+    vi: {
+      pinLabel: 'Mã ghép nối', connect: 'Kết nối', chooseAgent: 'Chọn agent', details: 'Chi tiết phiên', links: 'Đặt liên kết',
+      editLayout: 'Sửa bố cục', moveLeft: 'Chuyển trước', moveRight: 'Chuyển sau', toggleKey: 'Ẩn / hiện nút', reset: 'Bố cục mặc định',
+      unpair: 'Ngắt ghép nối', done: 'Xong', chooseRequest: 'Chọn yêu cầu', deck: 'Bảng điều khiển', mainClaude: 'Claude chính',
+      openPr: 'Mở PR', openPreview: 'Mở preview', close: 'Đóng', linksTitle: 'Liên kết', save: 'Lưu', language: 'Ngôn ngữ',
+      connected: 'Đã kết nối Mac', disconnected: 'Mất kết nối', badResponse: 'Phản hồi không hợp lệ.', failed: 'Không thực hiện được.',
+      offline: 'Không kết nối được Mac. Kiểm tra Wi‑Fi và cửa sổ Orca Deck.', agentChanged: 'Agent đã đổi phiên. Chọn lại.', session: 'phiên',
+      working: 'Đang thực hiện…', sentContinue: 'Đã gửi Continue.', pinned: 'Đã ghim Claude chính.', doneMsg: 'Xong.',
+      approved: 'Đã duyệt một lần.', rejected: 'Đã từ chối.', noAgents: 'Chưa có Claude/Codex trong Orca.', pinAs: 'Ghim làm Claude chính',
+      waiting: 'chờ duyệt', paired: 'Đã kết nối. Ghim Claude chính.', mainChanged: 'Claude chính đã đổi phiên. Ghim lại.', saved: 'Đã lưu.'
+    },
+    en: {
+      pinLabel: 'Pairing code', connect: 'Connect', chooseAgent: 'Choose agent', details: 'Session details', links: 'Set links',
+      editLayout: 'Edit layout', moveLeft: 'Move earlier', moveRight: 'Move later', toggleKey: 'Hide / show key', reset: 'Default layout',
+      unpair: 'Unpair', done: 'Done', chooseRequest: 'Choose request', deck: 'Control deck', mainClaude: 'Main Claude',
+      openPr: 'Open PR', openPreview: 'Open preview', close: 'Close', linksTitle: 'Links', save: 'Save', language: 'Language',
+      connected: 'Connected to Mac', disconnected: 'Disconnected', badResponse: 'Invalid response.', failed: "Couldn't do that.",
+      offline: "Can't reach the Mac. Check Wi‑Fi and the Orca Deck window.", agentChanged: 'The agent session changed. Choose again.', session: 'session',
+      working: 'Working…', sentContinue: 'Sent Continue.', pinned: 'Main Claude pinned.', doneMsg: 'Done.',
+      approved: 'Approved once.', rejected: 'Rejected.', noAgents: 'No Claude/Codex terminals in Orca.', pinAs: 'Pin as main Claude',
+      waiting: 'waiting', paired: 'Connected. Pin your main Claude.', mainChanged: 'Main Claude changed session. Pin it again.', saved: 'Saved.'
+    }
+  };
+  var lang = '';
+  try { lang = localStorage.getItem('orcaDeckLang') || ''; } catch (e) {}
+  if (!TEXT[lang]) lang = /^vi/i.test(navigator.language || '') ? 'vi' : 'en';
+  function t(key) { return TEXT[lang][key]; }
+  function applyLang() {
+    var i, nodes = document.querySelectorAll('[data-t]');
+    for (i = 0; i < nodes.length; i++) nodes[i].textContent = t(nodes[i].getAttribute('data-t'));
+    nodes = document.querySelectorAll('[data-ta]');
+    for (i = 0; i < nodes.length; i++) nodes[i].setAttribute('aria-label', t(nodes[i].getAttribute('data-ta')));
+    nodes = document.querySelectorAll('.lang-code');
+    for (i = 0; i < nodes.length; i++) nodes[i].textContent = lang.toUpperCase();
+    document.documentElement.lang = lang;
+    if (!agent()) $('agentTitle').textContent = t('chooseAgent');
+  }
   try { token = localStorage.getItem('orcaDeckToken') || ''; } catch (e) {}
   function message(text) { clearTimeout(timer); $('message').textContent = text || ''; if (text) timer = setTimeout(function () { $('message').textContent = ''; }, 4000); }
-  function connected(on) { $('dot').className = on ? 'on' : ''; $('dot').setAttribute('aria-label', on ? 'Đã kết nối Mac' : 'Mất kết nối'); }
+  function connected(on) { $('dot').className = on ? 'on' : ''; $('dot').setAttribute('aria-label', t(on ? 'connected' : 'disconnected')); }
   function defaultLayout() { return { order: KEYS.slice(), hidden: {} }; }
   try { layout = JSON.parse(localStorage.getItem('orcaDeckLayout')); } catch (e) {}
   if (!layout || !layout.order || !layout.hidden) layout = defaultLayout();
@@ -31,14 +69,15 @@
     xhr.open(data === null ? 'GET' : 'POST', '/api/' + route, true);
     xhr.timeout = 15000;
     xhr.setRequestHeader('Content-Type', 'application/json');
+    xhr.setRequestHeader('X-Deck-Lang', lang);
     if (token) xhr.setRequestHeader('Authorization', 'Bearer ' + token);
     xhr.onload = function () {
       var result;
-      try { result = JSON.parse(xhr.responseText); } catch (e) { return callback(new Error('Phản hồi không hợp lệ.')); }
+      try { result = JSON.parse(xhr.responseText); } catch (e) { return callback(new Error(t('badResponse'))); }
       if (xhr.status === 401 && route !== 'pair') { token = ''; try { localStorage.removeItem('orcaDeckToken'); } catch (e) {} showPair(); }
-      callback(xhr.status >= 200 && xhr.status < 300 ? null : new Error(result.error || 'Không thực hiện được.'), result);
+      callback(xhr.status >= 200 && xhr.status < 300 ? null : new Error(result.error || t('failed')), result);
     };
-    xhr.onerror = xhr.ontimeout = function () { callback(new Error('Không kết nối được Mac. Kiểm tra Wi‑Fi và cửa sổ Orca Deck.')); };
+    xhr.onerror = xhr.ontimeout = function () { callback(new Error(t('offline'))); };
     xhr.send(data === null ? null : JSON.stringify(data));
   }
   function showPair() { $('pair').hidden = !!token; $('deck').hidden = !token; if (!token) { connected(false); editing = false; applyLayout(); } }
@@ -63,18 +102,18 @@
   }
   function render() {
     var a = agent(), r;
-    if (selected && !a) { selected = null; message('Agent đã đổi phiên. Chọn lại.'); }
-    $('agentTitle').textContent = a ? a.title : 'Chọn agent';
+    if (selected && !a) { selected = null; message(t('agentChanged')); }
+    $('agentTitle').textContent = a ? a.title : t('chooseAgent');
     $('project').textContent = a ? a.project + ' · ' + a.agent : '';
     var select = $('requestSelect');
     while (select.firstChild) select.removeChild(select.firstChild);
     var empty = document.createElement('option');
-    empty.value = ''; empty.textContent = 'Chọn yêu cầu'; select.appendChild(empty);
+    empty.value = ''; empty.textContent = t('chooseRequest'); select.appendChild(empty);
     if (!requestChosen && state.requests.length === 1) { selectedRequest = state.requests[0].id; requestChosen = true; }
     if (selectedRequest && !request()) selectedRequest = '';
     for (var i = 0; i < state.requests.length; i++) {
       var q = state.requests[i], option = document.createElement('option');
-      option.value = q.id; option.textContent = q.project + ' · ' + q.tool + ' · phiên ' + q.sessionId.slice(0, 8); select.appendChild(option);
+      option.value = q.id; option.textContent = q.project + ' · ' + q.tool + ' · ' + t('session') + ' ' + q.sessionId.slice(0, 8); select.appendChild(option);
     }
     select.value = selectedRequest;
     $('request').hidden = !state.requests.length;
@@ -101,9 +140,9 @@
   }
   function action(name, target, after) {
     if (busy || !target) return;
-    busy = true; buttonStates(); message('Đang thực hiện…');
+    busy = true; buttonStates(); message(t('working'));
     api('action', { action: name, handle: target.handle, incarnationId: target.incarnationId }, function (err) {
-      busy = false; message(err ? err.message : name === 'continue' ? 'Đã gửi Continue.' : name === 'pin' ? 'Đã ghim Claude chính.' : 'Xong.');
+      busy = false; message(err ? err.message : t(name === 'continue' ? 'sentContinue' : name === 'pin' ? 'pinned' : 'doneMsg'));
       if (!err && after) after();
       buttonStates(); poll();
     });
@@ -113,14 +152,14 @@
     busy = true; buttonStates();
     api('decision', { id: r.id, decision: value }, function (err) {
       busy = false; selectedRequest = ''; requestChosen = true;
-      message(err ? err.message : value === 'allow' ? 'Đã duyệt một lần.' : 'Đã từ chối.');
+      message(err ? err.message : t(value === 'allow' ? 'approved' : 'rejected'));
       buttonStates(); poll();
     });
   }
   function chooseAgents() {
     if (!state) return;
     var list = $('agentList'); while (list.firstChild) list.removeChild(list.firstChild);
-    if (!state.agents.length) { list.className = 'empty'; list.textContent = 'Chưa có Claude/Codex trong Orca.'; } else list.className = '';
+    if (!state.agents.length) { list.className = 'empty'; list.textContent = t('noAgents'); } else list.className = '';
     var cur = agent();
     state.agents.forEach(function (a) {
       var row = document.createElement('div'); row.className = 'agent-row';
@@ -133,7 +172,7 @@
       if (a.agent.indexOf('claude') === 0) {
         var isMain = state.main && state.main.handle === a.handle && state.main.incarnationId === a.incarnationId;
         var pin = document.createElement('button'); pin.className = 'icon-button' + (isMain ? ' pinned' : '');
-        pin.setAttribute('aria-label', 'Ghim làm Claude chính'); pin.setAttribute('aria-pressed', isMain ? 'true' : 'false');
+        pin.setAttribute('aria-label', t('pinAs')); pin.setAttribute('aria-pressed', isMain ? 'true' : 'false');
         pin.innerHTML = '<svg class="icon"><use xlink:href="#i-pin"/></svg>';
         pin.onclick = function () { action('pin', a, function () { selected = a; $('agentModal').hidden = true; }); };
         row.appendChild(pin);
@@ -157,7 +196,7 @@
     var a = agent(); if (!a) return;
     var waiting = state.requests.filter(function (q) { return q.workspace === a.workspace; }).length;
     $('detailsTitle').textContent = a.title;
-    $('detailsMeta').textContent = a.agent + ' · ' + a.workspace + (waiting ? ' · ' + waiting + ' chờ duyệt' : '');
+    $('detailsMeta').textContent = a.agent + ' · ' + a.workspace + (waiting ? ' · ' + waiting + ' ' + t('waiting') : '');
     if ($('detailsModal').hidden) { $('detailsScreen').textContent = '…'; $('detailsModal').hidden = false; }
     loadDetails();
   }
@@ -171,7 +210,7 @@
     api('pair', { pin: $('pin').value.trim() }, function (err, result) {
       if (err) return message(err.message);
       token = result.token; try { localStorage.setItem('orcaDeckToken', token); } catch (e) {}
-      $('pin').value = ''; showPair(); message('Đã kết nối. Ghim Claude chính.'); poll();
+      $('pin').value = ''; showPair(); message(t('paired')); poll();
     });
   };
   $('requestSelect').onchange = function () { selectedRequest = this.value; requestChosen = true; render(); };
@@ -185,7 +224,7 @@
       if (!state || !state.main) return chooseAgents();
       var found = null;
       state.agents.forEach(function (a) { if (a.handle === state.main.handle && a.incarnationId === state.main.incarnationId) found = a; });
-      if (!found) { message('Claude chính đã đổi phiên. Ghim lại.'); return chooseAgents(); }
+      if (!found) { message(t('mainChanged')); return chooseAgents(); }
       selected = found; render(); action('focus', found);
     }
   };
@@ -204,7 +243,7 @@
     event.preventDefault(); var a = agent(); if (!a || busy) return;
     busy = true; buttonStates();
     api('links', { workspace: a.workspace, pr: $('prUrl').value.trim(), preview: $('previewUrl').value.trim() }, function (err) {
-      busy = false; message(err ? err.message : 'Đã lưu.'); if (!err) $('linksModal').hidden = true; buttonStates(); poll();
+      busy = false; message(err ? err.message : t('saved')); if (!err) $('linksModal').hidden = true; buttonStates(); poll();
     });
   };
   var closes = document.querySelectorAll('.close');
@@ -212,5 +251,11 @@
   ['agentModal', 'linksModal', 'detailsModal'].forEach(function (id) { $(id).onclick = function (event) { if (event.target === this) this.hidden = true; }; });
   $('unpair').onclick = function () { token = ''; state = null; selected = null; try { localStorage.removeItem('orcaDeckToken'); } catch (e) {} showPair(); };
   document.addEventListener('visibilitychange', function () { if (!document.hidden) poll(); });
-  applyLayout(); showPair(); poll(); setInterval(poll, 2000);
+  var langButtons = document.querySelectorAll('.lang-button');
+  for (i = 0; i < langButtons.length; i++) langButtons[i].onclick = function () {
+    lang = lang === 'vi' ? 'en' : 'vi';
+    try { localStorage.setItem('orcaDeckLang', lang); } catch (e) {}
+    applyLang(); if (state) render(); connected(!!state);
+  };
+  applyLang(); applyLayout(); showPair(); poll(); setInterval(poll, 2000);
 }());

@@ -9,6 +9,38 @@ const { promisify } = require('node:util');
 const execute = promisify(execFile);
 const ROOT = __dirname;
 const RUNTIME = path.join(ROOT, '.local', 'runtime.json');
+// English versions of user-facing errors, used when the page sends X-Deck-Lang: en.
+const EN = {
+  'Liên kết không hợp lệ.': 'Invalid link.',
+  'Nhập liên kết đầy đủ http:// hoặc https://.': 'Enter a full http:// or https:// link.',
+  'Chỉ hỗ trợ liên kết HTTP/HTTPS.': 'Only HTTP/HTTPS links are supported.',
+  'Dữ liệu quá lớn.': 'Request too large.',
+  'Dữ liệu không hợp lệ.': 'Invalid data.',
+  'Thao tác hết thời gian hoặc mất kết nối. Kiểm tra Mac trước khi thử lại.': 'Timed out or disconnected. Check the Mac before trying again.',
+  'Orca: Orca không phản hồi.': 'Orca: no response.',
+  'Địa chỉ máy chủ không hợp lệ.': 'Invalid host address.',
+  'Chỉ thao tác từ trang Orca Deck.': 'Only the Orca Deck page can do this.',
+  'Thử lại mã ghép nối sau một phút.': 'Too many attempts. Try the pairing code again in a minute.',
+  'Mã ghép nối chưa đúng.': 'Wrong pairing code.',
+  'Hook chưa được xác thực.': 'Hook not authenticated.',
+  'Hook thiếu thông tin.': 'Hook payload incomplete.',
+  'Cần ghép nối thiết bị.': 'Pair this device first.',
+  'Không có trang này.': 'Not found.',
+  'Quyết định không hợp lệ.': 'Invalid decision.',
+  'Yêu cầu đã được xử lý hoặc hết hạn.': 'This request was already handled or has expired.',
+  'Project không còn trong Orca.': 'This project is no longer in Orca.',
+  'Phiên agent đã thay đổi. Hãy chọn lại.': 'The agent session changed. Choose again.',
+  'Nút không hợp lệ.': 'Invalid button.',
+  'Thao tác đã hết thời gian hoặc mất kết nối.': 'Timed out or disconnected.',
+  'Claude chính phải là một phiên Claude.': 'Main Claude must be a Claude session.',
+  'Hãy đặt liên kết cho project này trước.': 'Set a link for this project first.',
+  'Project này đang có yêu cầu duyệt. Hãy xử lý yêu cầu trước.': 'This project has a pending approval. Handle it first.',
+  'Agent đang chạy; hãy chờ trước khi Continue.': 'The agent is still running; wait before Continue.',
+  'Không đọc được màn hình hiện tại. Hãy thao tác trên Mac.': "Can't read the current screen. Use the Mac.",
+  'Có hộp duyệt trong terminal. Hãy xử lý trên Mac.': 'There is an approval prompt in the terminal. Handle it on the Mac.',
+  'Không có thao tác này.': 'Unknown action.',
+  'Có lỗi khi xử lý. Vui lòng thử lại.': 'Something went wrong. Please try again.'
+};
 
 function failure(status, message) { return Object.assign(new Error(message), { status }); }
 function equalSecret(actual, expected) {
@@ -198,7 +230,10 @@ function createDeck({ config, orca = runOrca, saveConfig = () => {}, requestTime
         return send(res, 200, { ok: true });
       }
       throw failure(404, 'Không có thao tác này.');
-    } catch (err) { send(res, err.status || 500, { error: err.status ? err.message : 'Có lỗi khi xử lý. Vui lòng thử lại.' }); }
+    } catch (err) {
+      const error = err.status ? err.message : 'Có lỗi khi xử lý. Vui lòng thử lại.';
+      send(res, err.status || 500, { error: req.headers['x-deck-lang'] === 'en' ? EN[error] || error : error });
+    }
   });
   server.requestTimeout = 10000;
   server.on('close', () => { for (const r of requests.values()) r.finish(null); });
@@ -230,4 +265,4 @@ if (require.main === module) {
   process.on('SIGINT', stop);
   process.on('SIGTERM', stop);
 }
-module.exports = { createDeck };
+module.exports = { createDeck, EN };

@@ -222,3 +222,12 @@ test('details reads the current screen of the exact session only', async t => {
   assert.equal((await f.call('/api/details', { handle: 'term_live', incarnationId: 'old' })).status, 409);
   assert.equal((await f.call('/api/details', { handle: 'term_live', incarnationId: 'inc_live' }, 'wrong')).status, 401);
 });
+
+test('every server error has an English version, sent when the page asks for it', async t => {
+  const source = require('node:fs').readFileSync(require.resolve('../server'), 'utf8');
+  const { EN } = require('../server');
+  for (const [, text] of source.matchAll(/failure\(\d+, '([^']+)'\)/g)) assert.ok(EN[text], 'missing English for: ' + text);
+  const f = await fixture(t);
+  assert.equal((await (await f.call('/api/state', undefined, 'wrong', { 'X-Deck-Lang': 'en' })).json()).error, 'Pair this device first.');
+  assert.equal((await (await f.call('/api/state', undefined, 'wrong')).json()).error, 'Cần ghép nối thiết bị.');
+});
