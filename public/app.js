@@ -1,11 +1,11 @@
 (function () {
   'use strict';
-  var token = '', state = null, selected = null, selectedRequest = '', requestChosen = false, busy = false, polling = false, timer = 0, detailsLoading = false;
+  var token = '', state = null, selected = null, selectedRequest = '', shownRequest = '', shownAt = 0, busy = false, polling = false, timer = 0;
   var KEYS = ['approve', 'reject', 'continue', 'interrupt', 'mainClaude', 'choose', 'pr', 'preview'], layout, editing = false, picked = '';
   var $ = function (id) { return document.getElementById(id); };
   var TEXT = {
     vi: {
-      pinLabel: 'Mã ghép nối', connect: 'Kết nối', chooseAgent: 'Chọn agent', details: 'Chi tiết phiên', links: 'Đặt liên kết',
+      pinLabel: 'Mã ghép nối', connect: 'Kết nối', chooseAgent: 'Chọn agent', links: 'Đặt liên kết',
       editLayout: 'Sửa bố cục', moveLeft: 'Chuyển trước', moveRight: 'Chuyển sau', toggleKey: 'Ẩn / hiện nút', reset: 'Bố cục mặc định',
       unpair: 'Ngắt ghép nối', done: 'Xong', chooseRequest: 'Chọn yêu cầu', deck: 'Bảng điều khiển', mainClaude: 'Claude chính',
       openPr: 'Mở PR', openPreview: 'Mở preview', close: 'Đóng', linksTitle: 'Liên kết', save: 'Lưu', language: 'Ngôn ngữ',
@@ -13,10 +13,10 @@
       offline: 'Không kết nối được Mac. Kiểm tra Wi‑Fi và cửa sổ Orca Deck.', agentChanged: 'Agent đã đổi phiên. Chọn lại.', session: 'phiên',
       working: 'Đang thực hiện…', sentContinue: 'Đã gửi Continue.', pinned: 'Đã ghim Claude chính.', doneMsg: 'Xong.',
       approved: 'Đã duyệt một lần.', rejected: 'Đã từ chối.', noAgents: 'Chưa có Claude/Codex trong Orca.', pinAs: 'Ghim làm Claude chính',
-      waiting: 'chờ duyệt', paired: 'Đã kết nối. Ghim Claude chính.', mainChanged: 'Claude chính đã đổi phiên. Ghim lại.', saved: 'Đã lưu.'
+      approveOnce: 'Duyệt một lần', rejectOne: 'Từ chối', paired: 'Đã kết nối. Ghim Claude chính.', mainChanged: 'Claude chính đã đổi phiên. Ghim lại.', saved: 'Đã lưu.'
     },
     en: {
-      pinLabel: 'Pairing code', connect: 'Connect', chooseAgent: 'Choose agent', details: 'Session details', links: 'Set links',
+      pinLabel: 'Pairing code', connect: 'Connect', chooseAgent: 'Choose agent', links: 'Set links',
       editLayout: 'Edit layout', moveLeft: 'Move earlier', moveRight: 'Move later', toggleKey: 'Hide / show key', reset: 'Default layout',
       unpair: 'Unpair', done: 'Done', chooseRequest: 'Choose request', deck: 'Control deck', mainClaude: 'Main Claude',
       openPr: 'Open PR', openPreview: 'Open preview', close: 'Close', linksTitle: 'Links', save: 'Save', language: 'Language',
@@ -24,7 +24,7 @@
       offline: "Can't reach the Mac. Check Wi‑Fi and the Orca Deck window.", agentChanged: 'The agent session changed. Choose again.', session: 'session',
       working: 'Working…', sentContinue: 'Sent Continue.', pinned: 'Main Claude pinned.', doneMsg: 'Done.',
       approved: 'Approved once.', rejected: 'Rejected.', noAgents: 'No Claude/Codex terminals in Orca.', pinAs: 'Pin as main Claude',
-      waiting: 'waiting', paired: 'Connected. Pin your main Claude.', mainChanged: 'Main Claude changed session. Pin it again.', saved: 'Saved.'
+      approveOnce: 'Approve once', rejectOne: 'Reject', paired: 'Connected. Pin your main Claude.', mainChanged: 'Main Claude changed session. Pin it again.', saved: 'Saved.'
     }
   };
   var lang = '';
@@ -64,6 +64,7 @@
     buttonStates();
   }
   function move(step) { var at = layout.order.indexOf(picked); layout.order.splice(at, 1); layout.order.splice(at + step, 0, picked); applyLayout(); }
+  function fail(text, status, code) { var e = new Error(text); e.status = status; e.code = code; return e; }
   function api(route, data, callback) {
     var xhr = new XMLHttpRequest();
     xhr.open(data === null ? 'GET' : 'POST', '/api/' + route, true);
@@ -73,11 +74,11 @@
     if (token) xhr.setRequestHeader('Authorization', 'Bearer ' + token);
     xhr.onload = function () {
       var result;
-      try { result = JSON.parse(xhr.responseText); } catch (e) { return callback(new Error(t('badResponse'))); }
+      try { result = JSON.parse(xhr.responseText); } catch (e) { return callback(fail(t('badResponse'), xhr.status, '')); }
       if (xhr.status === 401 && route !== 'pair') { token = ''; try { localStorage.removeItem('orcaDeckToken'); } catch (e) {} showPair(); }
-      callback(xhr.status >= 200 && xhr.status < 300 ? null : new Error(result.error || t('failed')), result);
+      callback(xhr.status >= 200 && xhr.status < 300 ? null : fail(result.error || t('failed'), xhr.status, result.code || ''), result);
     };
-    xhr.onerror = xhr.ontimeout = function () { callback(new Error(t('offline'))); };
+    xhr.onerror = xhr.ontimeout = function () { callback(fail(t('offline'), 0, 'offline')); };
     xhr.send(data === null ? null : JSON.stringify(data));
   }
   function showPair() { $('pair').hidden = !!token; $('deck').hidden = !token; if (!token) { connected(false); editing = false; applyLayout(); } }
@@ -94,11 +95,11 @@
   function buttonStates() {
     var a = agent(), r = request(), ids = ['continue', 'interrupt', 'pr', 'preview'];
     if (editing) { KEYS.forEach(function (id) { $(id).disabled = false; }); return; }
-    $('approve').disabled = $('reject').disabled = busy || !r;
+    var settling = Date.now() - shownAt < 1000;
+    $('approve').disabled = $('reject').disabled = $('cardApprove').disabled = $('cardReject').disabled = busy || !r || settling;
     for (var i = 0; i < ids.length; i++) $(ids[i]).disabled = busy || !a;
     $('choose').disabled = $('mainClaude').disabled = $('agentButton').disabled = busy;
     $('linksButton').disabled = busy || !a;
-    $('detailsButton').disabled = !a;
   }
   function render() {
     var a = agent(), r;
@@ -109,8 +110,9 @@
     while (select.firstChild) select.removeChild(select.firstChild);
     var empty = document.createElement('option');
     empty.value = ''; empty.textContent = t('chooseRequest'); select.appendChild(empty);
-    if (!requestChosen && state.requests.length === 1) { selectedRequest = state.requests[0].id; requestChosen = true; }
     if (selectedRequest && !request()) selectedRequest = '';
+    // A lone request is always shown, including after a decision, expiry, or a decision on another device.
+    if (state.requests.length === 1 && !request()) selectedRequest = state.requests[0].id;
     for (var i = 0; i < state.requests.length; i++) {
       var q = state.requests[i], option = document.createElement('option');
       option.value = q.id; option.textContent = q.project + ' · ' + q.tool + ' · ' + t('session') + ' ' + q.sessionId.slice(0, 8); select.appendChild(option);
@@ -120,6 +122,7 @@
     select.hidden = state.requests.length < 2;
     $('requestCount').textContent = state.requests.length;
     r = request();
+    if ((r ? r.id : '') !== shownRequest) { shownRequest = r ? r.id : ''; shownAt = Date.now(); setTimeout(buttonStates, 1000); }
     $('requestTool').textContent = r ? r.tool : '';
     $('requestMeta').textContent = r ? r.project + ' · ' + r.sessionId.slice(0, 8) : '';
     $('requestInput').hidden = !r;
@@ -131,11 +134,11 @@
     polling = true;
     api('state', null, function (err, result) {
       polling = false;
-      if (err) { connected(false); state = null; buttonStates(); message(err.message); return; }
+      if (err) { connected(false); state = null; buttonStates(); message(err.message); notify(err); return; }
       connected(true); state = result;
       if (state.orcaError) message(state.orcaError);
       render();
-      if (!$('detailsModal').hidden) { if (agent()) showDetails(); else $('detailsModal').hidden = true; }
+      notify();
     });
   }
   function action(name, target, after) {
@@ -148,14 +151,26 @@
     });
   }
   function decide(value) {
-    var r = request(); if (!r || busy) return;
+    var r = request(); if (!r || busy || Date.now() - shownAt < 1000) return;
     busy = true; buttonStates();
     api('decision', { id: r.id, decision: value }, function (err) {
-      busy = false; selectedRequest = ''; requestChosen = true;
+      busy = false; selectedRequest = '';
       message(err ? err.message : t(value === 'allow' ? 'approved' : 'rejected'));
       buttonStates(); poll();
     });
   }
+  var listeners = [];
+  function notify(err) { for (var i = 0; i < listeners.length; i++) listeners[i](state, err || null); }
+  // Every selection change goes through here so the Agent view never shows one agent while targeting another.
+  function setSelected(a) { selected = a; render(); notify(); }
+  window.Deck = {
+    api: api, t: t, message: message, decide: decide, action: action, poll: poll,
+    getState: function () { return state; },
+    getSelected: agent,
+    select: setSelected,
+    pickRequest: function (id) { selectedRequest = id; render(); },
+    onState: function (fn) { listeners.push(fn); }
+  };
   function chooseAgents() {
     if (!state) return;
     var list = $('agentList'); while (list.firstChild) list.removeChild(list.firstChild);
@@ -167,38 +182,19 @@
       var title = document.createElement('strong'); title.textContent = a.title;
       var sub = document.createElement('small'); sub.textContent = a.project + ' · ' + a.agent;
       choice.appendChild(title); choice.appendChild(sub);
-      choice.onclick = function () { selected = a; $('agentModal').hidden = true; render(); action('focus', a); };
+      choice.onclick = function () { $('agentModal').hidden = true; setSelected(a); action('focus', a); };
       row.appendChild(choice);
       if (a.agent.indexOf('claude') === 0) {
         var isMain = state.main && state.main.handle === a.handle && state.main.incarnationId === a.incarnationId;
         var pin = document.createElement('button'); pin.className = 'icon-button' + (isMain ? ' pinned' : '');
         pin.setAttribute('aria-label', t('pinAs')); pin.setAttribute('aria-pressed', isMain ? 'true' : 'false');
         pin.innerHTML = '<svg class="icon"><use xlink:href="#i-pin"/></svg>';
-        pin.onclick = function () { action('pin', a, function () { selected = a; $('agentModal').hidden = true; }); };
+        pin.onclick = function () { action('pin', a, function () { $('agentModal').hidden = true; setSelected(a); }); };
         row.appendChild(pin);
       }
       list.appendChild(row);
     });
     $('agentModal').hidden = false;
-  }
-  function loadDetails() {
-    var a = agent(); if (!a || detailsLoading) return;
-    detailsLoading = true;
-    api('details', { handle: a.handle, incarnationId: a.incarnationId }, function (err, result) {
-      detailsLoading = false;
-      if ($('detailsModal').hidden) return;
-      var screen = $('detailsScreen'), atBottom = screen.scrollTop + screen.clientHeight >= screen.scrollHeight - 20;
-      screen.textContent = err ? err.message : result.screen.join('\n') || '—';
-      if (atBottom) screen.scrollTop = screen.scrollHeight;
-    });
-  }
-  function showDetails() {
-    var a = agent(); if (!a) return;
-    var waiting = state.requests.filter(function (q) { return q.workspace === a.workspace; }).length;
-    $('detailsTitle').textContent = a.title;
-    $('detailsMeta').textContent = a.agent + ' · ' + a.workspace + (waiting ? ' · ' + waiting + ' ' + t('waiting') : '');
-    if ($('detailsModal').hidden) { $('detailsScreen').textContent = '…'; $('detailsModal').hidden = false; }
-    loadDetails();
   }
   function editLinks() {
     var a = agent(); if (!a) return;
@@ -213,7 +209,9 @@
       $('pin').value = ''; showPair(); message(t('paired')); poll();
     });
   };
-  $('requestSelect').onchange = function () { selectedRequest = this.value; requestChosen = true; render(); };
+  $('requestSelect').onchange = function () { selectedRequest = this.value; render(); };
+  $('cardApprove').onclick = function () { decide('allow'); };
+  $('cardReject').onclick = function () { decide('deny'); };
   var handlers = {
     approve: function () { decide('allow'); },
     reject: function () { decide('deny'); },
@@ -225,14 +223,13 @@
       var found = null;
       state.agents.forEach(function (a) { if (a.handle === state.main.handle && a.incarnationId === state.main.incarnationId) found = a; });
       if (!found) { message(t('mainChanged')); return chooseAgents(); }
-      selected = found; render(); action('focus', found);
+      setSelected(found); action('focus', found);
     }
   };
   ['pr', 'preview'].forEach(function (name) { handlers[name] = function () { var a = agent(); if (!a) return; if (!(state.links[a.workspace] || {})[name]) return editLinks(); action(name, a); }; });
   KEYS.forEach(function (id) { $(id).onclick = function () { if (editing) { picked = id; applyLayout(); } else handlers[id](); }; });
   $('agentButton').onclick = chooseAgents;
   $('linksButton').onclick = editLinks;
-  $('detailsButton').onclick = showDetails;
   $('editButton').onclick = function () { editing = true; picked = ''; applyLayout(); };
   $('editDone').onclick = function () { editing = false; picked = ''; applyLayout(); if (state) render(); };
   $('moveLeft').onclick = function () { move(-1); };
@@ -246,9 +243,10 @@
       busy = false; message(err ? err.message : t('saved')); if (!err) $('linksModal').hidden = true; buttonStates(); poll();
     });
   };
+  var MODALS = ['agentModal', 'linksModal'];
   var closes = document.querySelectorAll('.close');
-  for (var i = 0; i < closes.length; i++) closes[i].onclick = function () { $('agentModal').hidden = $('linksModal').hidden = $('detailsModal').hidden = true; };
-  ['agentModal', 'linksModal', 'detailsModal'].forEach(function (id) { $(id).onclick = function (event) { if (event.target === this) this.hidden = true; }; });
+  for (var i = 0; i < closes.length; i++) closes[i].onclick = function () { MODALS.forEach(function (id) { $(id).hidden = true; }); };
+  MODALS.forEach(function (id) { $(id).onclick = function (event) { if (event.target === this) this.hidden = true; }; });
   $('unpair').onclick = function () { token = ''; state = null; selected = null; try { localStorage.removeItem('orcaDeckToken'); } catch (e) {} showPair(); };
   document.addEventListener('visibilitychange', function () { if (!document.hidden) poll(); });
   var langButtons = document.querySelectorAll('.lang-button');
