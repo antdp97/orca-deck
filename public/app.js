@@ -13,7 +13,7 @@
       offline: 'Không kết nối được Mac. Kiểm tra Wi‑Fi và cửa sổ Orca Deck.', agentChanged: 'Agent đã đổi phiên. Chọn lại.', session: 'phiên',
       working: 'Đang thực hiện…', sentContinue: 'Đã gửi Continue.', pinned: 'Đã ghim Claude chính.', doneMsg: 'Xong.',
       approved: 'Đã duyệt một lần.', rejected: 'Đã từ chối.', noAgents: 'Chưa có Claude/Codex trong Orca.', pinAs: 'Ghim làm Claude chính',
-      tabAgents: 'Tất cả', approveOnce: 'Duyệt một lần', rejectOne: 'Từ chối', paired: 'Đã kết nối. Ghim Claude chính.', mainChanged: 'Claude chính đã đổi phiên. Ghim lại.', saved: 'Đã lưu.'
+      tabAgents: 'Tất cả', sound: 'Âm thanh', approveOnce: 'Duyệt một lần', rejectOne: 'Từ chối', paired: 'Đã kết nối. Ghim Claude chính.', mainChanged: 'Claude chính đã đổi phiên. Ghim lại.', saved: 'Đã lưu.'
     },
     en: {
       pinLabel: 'Pairing code', connect: 'Connect', chooseAgent: 'Choose agent', links: 'Set links',
@@ -24,7 +24,7 @@
       offline: "Can't reach the Mac. Check Wi‑Fi and the Orca Deck window.", agentChanged: 'The agent session changed. Choose again.', session: 'session',
       working: 'Working…', sentContinue: 'Sent Continue.', pinned: 'Main Claude pinned.', doneMsg: 'Done.',
       approved: 'Approved once.', rejected: 'Rejected.', noAgents: 'No Claude/Codex terminals in Orca.', pinAs: 'Pin as main Claude',
-      tabAgents: 'Agents', approveOnce: 'Approve once', rejectOne: 'Reject', paired: 'Connected. Pin your main Claude.', mainChanged: 'Main Claude changed session. Pin it again.', saved: 'Saved.'
+      tabAgents: 'Agents', sound: 'Sound', approveOnce: 'Approve once', rejectOne: 'Reject', paired: 'Connected. Pin your main Claude.', mainChanged: 'Main Claude changed session. Pin it again.', saved: 'Saved.'
     }
   };
   var lang = '';

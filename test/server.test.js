@@ -440,3 +440,12 @@ test('snippets reject invalid lists and keep the old one', async t => {
   assert.equal(f.config.snippets, undefined);
   assert.equal((await f.call('/api/snippets', { list: [] })).status, 200);
 });
+
+test('serves the new scripts without pairing', async t => {
+  const f = await fixture(t);
+  for (const file of ['/alerts.js']) {
+    const res = await f.call(file, undefined, '');
+    assert.equal(res.status, 200, file);
+    assert.match(res.headers.get('content-type'), /javascript/);
+  }
+});
