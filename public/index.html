@@ -30,6 +30,7 @@
   <symbol id="i-bell-off" viewBox="0 0 24 24"><path d="M8.7 3A6 6 0 0 1 18 8a21.3 21.3 0 0 0 .6 5"/><path d="M17 17H3s3-2 3-9a4.67 4.67 0 0 1 .3-1.7"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/><path d="m2 2 20 20"/></symbol>
   <symbol id="i-alert" viewBox="0 0 24 24"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4M12 17h.01"/></symbol>
   <symbol id="i-pause" viewBox="0 0 24 24"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></symbol>
+  <symbol id="i-pencil" viewBox="0 0 24 24"><path d="M21.17 6.81a1 1 0 0 0-3.99-3.99L3.84 16.17a2 2 0 0 0-.5.83l-1.32 4.35a.5.5 0 0 0 .62.62l4.35-1.32a2 2 0 0 0 .83-.5z"/></symbol>
   <symbol id="i-pin" viewBox="0 0 24 24"><path d="M12 17v5M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/></symbol>
 </svg>
 <main>
@@ -63,7 +64,34 @@
       <div id="cardActions" class="card-actions"><button id="cardApprove" class="approve" data-ta="approveOnce" aria-label="Duyệt một lần" disabled>Approve</button><button id="cardReject" class="reject" data-ta="rejectOne" aria-label="Từ chối" disabled>Reject</button></div>
     </section>
     <section id="agentsView" class="view" hidden><div id="agentsList" class="list"></div></section>
-    <section id="agentView" class="view" hidden></section>
+    <section id="agentView" class="view" hidden>
+      <p id="agentEmpty" class="empty" data-t="pickAgent">Chọn một agent trong Tất cả.</p>
+      <div id="agentBody" class="view" hidden>
+        <div class="agent-head">
+          <span id="agentBadge"></span><strong id="agentName"></strong>
+          <button id="agentFocus" class="icon-button" data-ta="focusMac" aria-label="Mở trên Mac"><svg class="icon"><use xlink:href="#i-terminal"/></svg></button>
+          <button id="agentPin" class="icon-button" data-ta="pinAs" aria-label="Ghim làm Claude chính"><svg class="icon"><use xlink:href="#i-pin"/></svg></button>
+          <button id="agentPr" class="icon-button" data-ta="openPr" aria-label="Mở PR"><svg class="icon"><use xlink:href="#i-pr"/></svg></button>
+          <button id="agentPreview" class="icon-button" data-ta="openPreview" aria-label="Mở preview"><svg class="icon"><use xlink:href="#i-monitor"/></svg></button>
+        </div>
+        <pre id="agentScreen" class="screen"></pre>
+        <p id="agentNote" class="note" hidden></p>
+        <div id="sendKeys" class="send-keys">
+          <button type="button" data-key="esc" aria-label="Escape">Esc</button>
+          <button type="button" data-key="up" data-ta="keyUp" aria-label="Lên">↑</button>
+          <button type="button" data-key="down" data-ta="keyDown" aria-label="Xuống">↓</button>
+          <button type="button" data-key="left" data-ta="keyLeft" aria-label="Trái">←</button>
+          <button type="button" data-key="right" data-ta="keyRight" aria-label="Phải">→</button>
+          <button type="button" data-key="tab" aria-label="Tab">Tab</button>
+          <button type="button" data-key="y">y</button>
+          <button type="button" data-key="n">n</button>
+          <button type="button" data-key="enter" aria-label="Enter">⏎</button>
+          <button type="button" data-key="ctrl-c" class="danger" aria-label="Ctrl-C">^C</button>
+        </div>
+        <div id="snippets" class="chips"></div>
+        <form id="replyForm" class="reply"><label class="sr-only" for="replyText" data-t="reply">Trả lời</label><input id="replyText" type="text" autocomplete="off" autocapitalize="off" autocorrect="off" maxlength="2000"><button id="replySend" type="submit" class="primary" data-t="send">Gửi</button></form>
+      </div>
+    </section>
     <section id="keys" class="keys" data-ta="deck" aria-label="Bảng điều khiển">
       <button id="approve" class="key approve" data-ta="approveOnce" aria-label="Duyệt một lần" disabled><svg class="icon"><use xlink:href="#i-check"/></svg><strong>Approve</strong></button>
       <button id="reject" class="key reject" data-ta="rejectOne" aria-label="Từ chối" disabled><svg class="icon"><use xlink:href="#i-x"/></svg><strong>Reject</strong></button>
@@ -84,7 +112,9 @@
 </main>
 <div id="agentModal" class="modal" hidden><section class="modal-card"><div class="modal-heading"><h2>Agent</h2><button class="icon-button close" data-ta="close" aria-label="Đóng"><svg class="icon"><use xlink:href="#i-x"/></svg></button></div><div id="agentList"></div></section></div>
 <div id="linksModal" class="modal" hidden><section class="modal-card"><div class="modal-heading"><h2 data-t="linksTitle">Liên kết</h2><button class="icon-button close" data-ta="close" aria-label="Đóng"><svg class="icon"><use xlink:href="#i-x"/></svg></button></div><form id="linksForm"><label for="prUrl">PR</label><input id="prUrl" type="url" placeholder="https://github.com/…/pull/…"><label for="previewUrl">Preview</label><input id="previewUrl" type="url" placeholder="http://localhost:3000"><button type="submit" class="primary" data-t="save">Lưu</button></form></section></div>
+<div id="snippetModal" class="modal" hidden><section class="modal-card"><div class="modal-heading"><h2 data-t="editSnippets">Sửa mẫu trả lời</h2><button class="icon-button close" data-ta="close" aria-label="Đóng"><svg class="icon"><use xlink:href="#i-x"/></svg></button></div><form id="snippetForm"><label for="snippetText" data-t="snippetsHelp">Mỗi dòng một mẫu (tối đa 20)</label><textarea id="snippetText" rows="8"></textarea><button type="submit" class="primary" data-t="save">Lưu</button></form></section></div>
 <script src="/app.js"></script>
 <script src="/alerts.js"></script>
 <script src="/agents.js"></script>
+<script src="/agent.js"></script>
 </body></html>

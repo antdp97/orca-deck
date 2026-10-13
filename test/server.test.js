@@ -443,7 +443,7 @@ test('snippets reject invalid lists and keep the old one', async t => {
 
 test('serves the new scripts without pairing', async t => {
   const f = await fixture(t);
-  for (const file of ['/alerts.js', '/agents.js']) {
+  for (const file of ['/alerts.js', '/agents.js', '/agent.js']) {
     const res = await f.call(file, undefined, '');
     assert.equal(res.status, 200, file);
     assert.match(res.headers.get('content-type'), /javascript/);

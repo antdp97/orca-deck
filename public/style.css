@@ -80,6 +80,20 @@ pre{white-space:pre-wrap;word-break:break-word;color:#e4dccb;font-family:Menlo,m
 .status .icon{width:20px;height:20px}
 .status.prompt{background:#e8c56a;color:#2a2210}
 .status.working{background:#2f4a2a;color:#b0ec8d}
+/* Agent view */
+.agent-head{display:flex;align-items:center;margin-bottom:10px;flex-shrink:0}
+.agent-head strong{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:18px}
+.note{flex-shrink:0;margin:8px 0 0;color:#e8c56a;font-size:14px}
+.send-keys{display:flex;flex-wrap:wrap;flex-shrink:0;margin-top:10px}
+.send-keys button{flex:1 0 48px;margin:0 6px 6px 0;padding:0;font-family:Menlo,monospace;font-size:17px}
+.chips{display:flex;overflow-x:auto;-webkit-overflow-scrolling:touch;flex-shrink:0;padding-bottom:4px}
+.chip{flex-shrink:0;margin-right:8px;border-radius:24px;padding:8px 16px;min-height:44px;font-size:15px;display:flex;align-items:center}
+.chip .icon{width:20px;height:20px}
+.screen.ended{opacity:.45}
+.reply{display:flex;flex-shrink:0;margin-top:8px}
+.reply input{margin:0;flex:1;min-width:0}
+.reply button{margin-left:8px}
+textarea{font:inherit;font-size:16px;border:1px solid #45504a;background:#121717;color:#eee;border-radius:10px;padding:12px;width:100%;margin:8px 0 16px;-webkit-user-select:text;user-select:text;resize:vertical}
 /* Alerts */
 .flash-needs main{-webkit-animation:flash-needs 1s ease-out;animation:flash-needs 1s ease-out}
 .flash-quiet main{-webkit-animation:flash-quiet 1s ease-out;animation:flash-quiet 1s ease-out}

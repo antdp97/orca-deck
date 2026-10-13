@@ -13,7 +13,11 @@
       offline: 'Không kết nối được Mac. Kiểm tra Wi‑Fi và cửa sổ Orca Deck.', agentChanged: 'Agent đã đổi phiên. Chọn lại.', session: 'phiên',
       working: 'Đang thực hiện…', sentContinue: 'Đã gửi Continue.', pinned: 'Đã ghim Claude chính.', doneMsg: 'Xong.',
       approved: 'Đã duyệt một lần.', rejected: 'Đã từ chối.', noAgents: 'Chưa có Claude/Codex trong Orca.', pinAs: 'Ghim làm Claude chính',
-      tabAgents: 'Tất cả', sound: 'Âm thanh', status_prompt: 'Chờ duyệt', status_working: 'Đang chạy', status_idle: 'Đang rảnh', now: 'vừa xong', approveOnce: 'Duyệt một lần', rejectOne: 'Từ chối', paired: 'Đã kết nối. Ghim Claude chính.', mainChanged: 'Claude chính đã đổi phiên. Ghim lại.', saved: 'Đã lưu.'
+      tabAgents: 'Tất cả', sound: 'Âm thanh', status_prompt: 'Chờ duyệt', status_working: 'Đang chạy', status_idle: 'Đang rảnh', now: 'vừa xong',
+      pickAgent: 'Chọn một agent trong Tất cả.', focusMac: 'Mở trên Mac', promptNote: 'Có hộp duyệt trên màn hình. Dùng thẻ duyệt hoặc Mac.',
+      sessionEnded: 'Phiên này đã kết thúc.', reply: 'Trả lời', send: 'Gửi', sent: 'Đã gửi.', maybeSent: 'Có thể đã gửi. Xem màn hình trước khi gửi lại.',
+      editSnippets: 'Sửa mẫu trả lời', snippetsHelp: 'Mỗi dòng một mẫu (tối đa 20)',
+      keyUp: 'Lên', keyDown: 'Xuống', keyLeft: 'Trái', keyRight: 'Phải', approveOnce: 'Duyệt một lần', rejectOne: 'Từ chối', paired: 'Đã kết nối. Ghim Claude chính.', mainChanged: 'Claude chính đã đổi phiên. Ghim lại.', saved: 'Đã lưu.'
     },
     en: {
       pinLabel: 'Pairing code', connect: 'Connect', chooseAgent: 'Choose agent', links: 'Set links',
@@ -24,7 +28,11 @@
       offline: "Can't reach the Mac. Check Wi‑Fi and the Orca Deck window.", agentChanged: 'The agent session changed. Choose again.', session: 'session',
       working: 'Working…', sentContinue: 'Sent Continue.', pinned: 'Main Claude pinned.', doneMsg: 'Done.',
       approved: 'Approved once.', rejected: 'Rejected.', noAgents: 'No Claude/Codex terminals in Orca.', pinAs: 'Pin as main Claude',
-      tabAgents: 'Agents', sound: 'Sound', status_prompt: 'Needs approval', status_working: 'Working', status_idle: 'Idle', now: 'now', approveOnce: 'Approve once', rejectOne: 'Reject', paired: 'Connected. Pin your main Claude.', mainChanged: 'Main Claude changed session. Pin it again.', saved: 'Saved.'
+      tabAgents: 'Agents', sound: 'Sound', status_prompt: 'Needs approval', status_working: 'Working', status_idle: 'Idle', now: 'now',
+      pickAgent: 'Pick an agent in Agents.', focusMac: 'Show on Mac', promptNote: 'Approval on screen. Use the card or the Mac.',
+      sessionEnded: 'This session has ended.', reply: 'Reply', send: 'Send', sent: 'Sent.', maybeSent: 'Might have been sent. Check the screen before resending.',
+      editSnippets: 'Edit snippets', snippetsHelp: 'One snippet per line (up to 20)',
+      keyUp: 'Up', keyDown: 'Down', keyLeft: 'Left', keyRight: 'Right', approveOnce: 'Approve once', rejectOne: 'Reject', paired: 'Connected. Pin your main Claude.', mainChanged: 'Main Claude changed session. Pin it again.', saved: 'Saved.'
     }
   };
   var lang = '';
@@ -195,7 +203,8 @@
     select: setSelected,
     pickRequest: function (id) { selectedRequest = id; render(); },
     onState: function (fn) { listeners.push(fn); },
-    show: showView, view: function () { return view; }, statusBadge: statusBadge
+    show: showView, view: function () { return view; }, statusBadge: statusBadge,
+    openLink: function (name) { handlers[name](); }
   };
   function chooseAgents() {
     if (!state) return;
@@ -269,7 +278,7 @@
       busy = false; message(err ? err.message : t('saved')); if (!err) $('linksModal').hidden = true; buttonStates(); poll();
     });
   };
-  var MODALS = ['agentModal', 'linksModal'];
+  var MODALS = ['agentModal', 'linksModal', 'snippetModal'];
   var closes = document.querySelectorAll('.close');
   for (var i = 0; i < closes.length; i++) closes[i].onclick = function () { MODALS.forEach(function (id) { $(id).hidden = true; }); };
   MODALS.forEach(function (id) { $(id).onclick = function (event) { if (event.target === this) this.hidden = true; }; });
