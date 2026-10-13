@@ -44,12 +44,12 @@ Throwaway check against real Orca. Nothing is committed. Its result decides the 
 
 **Files:** none.
 
-- [ ] **Step 1: Create a scratch terminal running `cat -v`**
+- [ ] **Step 1: Create a scratch terminal running `cat -vt`**
 
-`cat -v` prints control bytes visibly (`^[` for Esc, `^I` for Tab).
+`cat -vt` prints control bytes visibly (`^[` for Esc, `^I` for Tab).
 
 ```bash
-~/.local/bin/orca terminal create --worktree active --title deck-probe --command "cat -v" --json
+~/.local/bin/orca terminal create --worktree active --title deck-probe --command "cat -vt" --json
 ```
 
 Note the terminal `handle` in the JSON output. Below it is `$H`.
@@ -66,7 +66,7 @@ $O terminal send --terminal "$H" --enter --json
 $O terminal read --terminal "$H" --screen --json
 ```
 
-Expected: a line containing `^[^[[A^Iy` (echoed input and/or `cat -v` output). Also confirm the `--enter` call without `--text` succeeded (`"ok": true`) and the line was submitted.
+Expected: a line containing `^[^[[A^Iy` printed by `cat -vt` (the terminal's own echo above it may show the tab as spaces; ignore that line). Also confirm the `--enter` call without `--text` succeeded (`"ok": true`) and the line was submitted.
 
 - [ ] **Step 3: Close the scratch terminal**
 
@@ -78,7 +78,7 @@ $O terminal close --terminal "$H" --json
 
 - All bytes arrived: keep the full allowlist in Task 3 and Task 9 as written.
 - Escape bytes were dropped or mangled: in Task 3 remove `esc`, `tab`, `up`, `down`, `left`, `right` from `SEND_KEYS` and from the key-mapping test; in Task 9 remove those buttons. Note the change in the final summary to the user.
-- `--enter` without `--text` failed: in Task 3 map `enter` to `--text '' --enter` (change `const args = payload ? ... : ...` to always push `'--text', payload`) and update the expected args in the key-mapping test.
+- `--enter` without `--text` failed: in Task 3 map `enter` to `--text '' --enter` (change `if (payload) args.push('--text', payload);` to always push `'--text', payload`) and update the expected args in the key-mapping test.
 
 ---
 
@@ -347,11 +347,13 @@ test('Ctrl-C still works with an approval prompt, a pending request and no scree
   await response;
 });
 
-test('send reports delivery_unknown when the Orca send call fails', async t => {
+test('send reports delivery_unknown when the Orca send call fails, Ctrl-C included', async t => {
   const f = await sendFixture(t, { sendError: Object.assign(new Error('Orca: timeout'), { status: 503 }) });
-  const res = await f.sendTo({ text: 'hi', enter: true });
-  assert.equal(res.status, 409);
-  assert.equal((await res.json()).code, 'delivery_unknown');
+  for (const body of [{ text: 'hi', enter: true }, { key: 'ctrl-c' }]) {
+    const res = await f.sendTo(body);
+    assert.equal(res.status, 409);
+    assert.equal((await res.json()).code, 'delivery_unknown');
+  }
 });
 
 test('send counts delivered input as success when the follow-up read fails', async t => {
@@ -381,7 +383,8 @@ test('send is cancelled if the browser disconnects before the send step', async 
     headers: { Authorization: 'Bearer ' + f.config.token, 'Content-Type': 'application/json' },
     body: JSON.stringify({ handle: 'term_live', incarnationId: 'inc_live', text: 'hi' })
   }).catch(() => null);
-  await reading;
+  // Fails fast (instead of hanging) while /api/send doesn't exist yet and answers 404 without reading.
+  assert.equal(await Promise.race([reading.then(() => 'read'), response.then(() => 'response')]), 'read');
   controller.abort();
   await response;
   await new Promise(r => setTimeout(r, 15));
@@ -430,7 +433,7 @@ Inside `createDeck`, after `send()`, add the shared deadline helper:
   }
 ```
 
-In `/api/action`, replace the `controller` / `deadline` / `res.once` / `checkConnection` / `options` lines with:
+In `/api/action`, replace everything from `const controller = new AbortController();` **through** the existing `const agent = (await terminals(true, controller.signal)).find(…);` line (seven lines in total; the old `agent` line must go too, or `agent` is declared twice) with:
 
 ```js
         const { options, check: checkConnection } = guard(res);
@@ -449,10 +452,10 @@ Add before `if (route === '/api/action')`:
         const agent = (await terminals(true, options.signal)).find(t => t.handle === body.handle && t.incarnationId === body.incarnationId);
         if (!agent) throw failure(409, 'Phiên agent đã thay đổi. Hãy chọn lại.', 'stale');
         check();
-        const target = ['terminal', 'send', '--terminal', agent.handle];
+        let args = ['terminal', 'send', '--terminal', agent.handle];
         if (body.key === 'ctrl-c') {
           // Interrupting never approves anything, so it skips the prompt checks like the Interrupt key.
-          await orca([...target, '--interrupt'], options);
+          args.push('--interrupt');
         } else {
           if ([...requests.values()].some(r => r.info.workspace === agent.workspace)) throw failure(409, 'Project này đang có yêu cầu duyệt. Hãy xử lý yêu cầu trước.', 'blocked');
           const output = await orca(['terminal', 'read', '--terminal', agent.handle, '--screen'], options);
@@ -460,12 +463,13 @@ Add before `if (route === '/api/action')`:
           if (APPROVAL.test((output.terminal.tail || []).join('\n'))) throw failure(409, 'Có hộp duyệt trong terminal. Hãy xử lý trên Mac.', 'blocked');
           check();
           const payload = hasText ? body.text : SEND_KEYS[body.key];
-          const args = payload ? [...target, '--text', payload] : [...target];
+          if (payload) args.push('--text', payload);
           if (body.key === 'enter' || (hasText && body.enter === true)) args.push('--enter');
-          // shortcut: the screen check and the send are separate Orca calls, so a prompt appearing in between can receive input; needs an atomic Orca guard to close.
-          try { await orca(args, options); }
-          catch { throw failure(409, 'Có thể đã gửi. Xem màn hình trước khi gửi lại.', 'delivery_unknown'); }
         }
+        // shortcut: the screen check and the send are separate Orca calls, so a prompt appearing in between can receive input; needs an atomic Orca guard to close.
+        // Once Orca has the call, the input may already be written, so any failure here is "maybe sent", never a plain error.
+        try { await orca(args, options); }
+        catch { throw failure(409, 'Có thể đã gửi. Xem màn hình trước khi gửi lại.', 'delivery_unknown'); }
         let screen = null;
         try { screen = (await orca(['terminal', 'read', '--terminal', agent.handle, '--screen'], options)).terminal?.tail || null; } catch {}
         return send(res, 200, { ok: true, screen });
@@ -678,8 +682,12 @@ In `buttonStates()`, replace the approve/reject line with:
 `public/index.html`, inside `section#request` after `<pre id="requestInput"></pre>`:
 
 ```html
-      <div id="cardActions" class="card-actions"><button id="cardApprove" class="approve" aria-label="Approve once" disabled>Approve</button><button id="cardReject" class="reject" disabled>Reject</button></div>
+      <div id="cardActions" class="card-actions"><button id="cardApprove" class="approve" data-ta="approveOnce" aria-label="Duyệt một lần" disabled>Approve</button><button id="cardReject" class="reject" data-ta="rejectOne" aria-label="Từ chối" disabled>Reject</button></div>
 ```
+
+"Approve" / "Reject" stay as the visible words in both languages, matching the existing Deck keys. Their spoken labels are translated. Give the existing Deck keys the same treatment: on `#approve` replace `aria-label="Approve once"` with `data-ta="approveOnce" aria-label="Duyệt một lần"`, and on `#reject` add `data-ta="rejectOne" aria-label="Từ chối"`.
+
+Strings — `TEXT.vi`: `approveOnce: 'Duyệt một lần', rejectOne: 'Từ chối'`; `TEXT.en`: `approveOnce: 'Approve once', rejectOne: 'Reject'`.
 
 `public/app.js`, next to the other handlers:
 
@@ -703,17 +711,25 @@ In `buttonStates()`, replace the approve/reject line with:
 ```js
   var listeners = [];
   function notify(err) { for (var i = 0; i < listeners.length; i++) listeners[i](state, err || null); }
+  // Every selection change goes through here so the Agent view never shows one agent while targeting another.
+  function setSelected(a) { selected = a; render(); notify(); }
   window.Deck = {
     api: api, t: t, message: message, decide: decide, action: action, poll: poll,
     getState: function () { return state; },
     getSelected: agent,
-    select: function (a) { selected = a; render(); notify(); },
+    select: setSelected,
     pickRequest: function (id) { selectedRequest = id; render(); },
     onState: function (fn) { listeners.push(fn); }
   };
 ```
 
 In `poll()`'s callback, call `notify(err)` right after `message(err.message);` (before `return`) and `notify();` after `render();`.
+
+Route the existing selection paths through `setSelected`:
+- `chooseAgents()` row: `choice.onclick = function () { $('agentModal').hidden = true; setSelected(a); action('focus', a); };`
+- `chooseAgents()` pin: `pin.onclick = function () { action('pin', a, function () { $('agentModal').hidden = true; setSelected(a); }); };`
+- `handlers.mainClaude`: replace `selected = found; render(); action('focus', found);` with `setSelected(found); action('focus', found);`
+- `render()`: where it clears a vanished agent (`if (selected && !a) { selected = null; … }`), leave it as is; `poll()` notifies right after `render()`.
 
 - [ ] **Step 6: Run tests**
 
@@ -1007,7 +1023,8 @@ Expected: FAIL — `Cannot find module '../public/alerts.js'`, and `/alerts.js` 
     b.getElementsByTagName('use')[0].setAttributeNS('http://www.w3.org/1999/xlink', 'href', sound ? '#i-bell' : '#i-bell-off');
   }
   D.onState(function (state, err) {
-    if (err || !state) { memory = null; document.title = 'Orca Deck'; return; }
+    // Hidden or offline: keep no memory, so the next visible snapshot is a fresh baseline (an in-flight poll can land while hidden).
+    if (err || !state || document.hidden) { memory = null; if (err || !state) document.title = 'Orca Deck'; return; }
     var out = diff(memory, state, Date.now()), n = badge(state);
     memory = out.memory;
     document.title = n ? '(' + n + ') Orca Deck' : 'Orca Deck';
@@ -1212,12 +1229,12 @@ git commit -m "feat: Agents overview with status"
 
 **Files:**
 - Create: `public/agent.js`
-- Modify: `server.js` (static allowlist), `public/index.html` (view markup, snippet modal, sprite, script tag), `public/app.js` (strings, modal list), `public/style.css`
+- Modify: `server.js` (static allowlist), `public/index.html` (view markup, snippet modal, sprite, script tag), `public/app.js` (strings, modal list, `Deck.openLink`), `public/style.css`
 - Test: `test/server.test.js` (static-file list)
 
 **Interfaces:**
 - Consumes: `Deck.api` (err `.code`), `Deck.onState`, `Deck.view`, `Deck.show`, `Deck.getSelected`, `Deck.getState`, `Deck.action`, `Deck.poll`, `Deck.message`, `Deck.t`, `Deck.statusBadge`; `POST /api/details`, `POST /api/send`, `POST /api/snippets`.
-- Produces: nothing used by later tasks.
+- Produces: `Deck.openLink(name: 'pr' | 'preview')` (opens the saved link, or the links editor when none is set). Nothing else is used by later tasks.
 
 - [ ] **Step 1: Extend the static-file test**
 
@@ -1239,17 +1256,19 @@ Replace `<section id="agentView" class="view" hidden></section>` with:
       <div id="agentBody" class="view" hidden>
         <div class="agent-head">
           <span id="agentBadge"></span><strong id="agentName"></strong>
-          <button id="agentFocus" class="icon-button" data-ta="focusMac" aria-label="Mở trên Mac"><svg class="icon"><use xlink:href="#i-monitor"/></svg></button>
+          <button id="agentFocus" class="icon-button" data-ta="focusMac" aria-label="Mở trên Mac"><svg class="icon"><use xlink:href="#i-terminal"/></svg></button>
           <button id="agentPin" class="icon-button" data-ta="pinAs" aria-label="Ghim làm Claude chính"><svg class="icon"><use xlink:href="#i-pin"/></svg></button>
+          <button id="agentPr" class="icon-button" data-ta="openPr" aria-label="Mở PR"><svg class="icon"><use xlink:href="#i-pr"/></svg></button>
+          <button id="agentPreview" class="icon-button" data-ta="openPreview" aria-label="Mở preview"><svg class="icon"><use xlink:href="#i-monitor"/></svg></button>
         </div>
         <pre id="agentScreen" class="screen"></pre>
-        <p id="agentNote" class="note" data-t="promptNote" hidden></p>
+        <p id="agentNote" class="note" hidden></p>
         <div id="sendKeys" class="send-keys">
           <button type="button" data-key="esc" aria-label="Escape">Esc</button>
-          <button type="button" data-key="up" aria-label="Up">↑</button>
-          <button type="button" data-key="down" aria-label="Down">↓</button>
-          <button type="button" data-key="left" aria-label="Left">←</button>
-          <button type="button" data-key="right" aria-label="Right">→</button>
+          <button type="button" data-key="up" data-ta="keyUp" aria-label="Lên">↑</button>
+          <button type="button" data-key="down" data-ta="keyDown" aria-label="Xuống">↓</button>
+          <button type="button" data-key="left" data-ta="keyLeft" aria-label="Trái">←</button>
+          <button type="button" data-key="right" data-ta="keyRight" aria-label="Phải">→</button>
           <button type="button" data-key="tab" aria-label="Tab">Tab</button>
           <button type="button" data-key="y">y</button>
           <button type="button" data-key="n">n</button>
@@ -1262,7 +1281,7 @@ Replace `<section id="agentView" class="view" hidden></section>` with:
     </section>
 ```
 
-If Task 1 showed escape bytes don't arrive, omit the `esc`, `up`, `down`, `left`, `right` and `tab` buttons.
+Escape, Tab, Enter and Ctrl‑C are key names and stay the same in both languages. If Task 1 showed escape bytes don't arrive, omit the `esc`, `up`, `down`, `left`, `right` and `tab` buttons.
 
 After `#linksModal`:
 
@@ -1272,25 +1291,33 @@ After `#linksModal`:
 
 Script tag: `<script src="/agent.js"></script>` after `agents.js`.
 
-- [ ] **Step 3: Strings and modal list in `app.js`**
+- [ ] **Step 3: Strings, modal list and `openLink` in `app.js`**
 
 `TEXT.vi`:
 
 ```js
       pickAgent: 'Chọn một agent trong Tất cả.', focusMac: 'Mở trên Mac', promptNote: 'Có hộp duyệt trên màn hình. Dùng thẻ duyệt hoặc Mac.',
-      reply: 'Trả lời', send: 'Gửi', sent: 'Đã gửi.', maybeSent: 'Có thể đã gửi. Xem màn hình trước khi gửi lại.',
-      editSnippets: 'Sửa mẫu trả lời', snippetsHelp: 'Mỗi dòng một mẫu (tối đa 20)'
+      sessionEnded: 'Phiên này đã kết thúc.', reply: 'Trả lời', send: 'Gửi', sent: 'Đã gửi.', maybeSent: 'Có thể đã gửi. Xem màn hình trước khi gửi lại.',
+      editSnippets: 'Sửa mẫu trả lời', snippetsHelp: 'Mỗi dòng một mẫu (tối đa 20)',
+      keyUp: 'Lên', keyDown: 'Xuống', keyLeft: 'Trái', keyRight: 'Phải'
 ```
 
 `TEXT.en`:
 
 ```js
       pickAgent: 'Pick an agent in Agents.', focusMac: 'Show on Mac', promptNote: 'Approval on screen. Use the card or the Mac.',
-      reply: 'Reply', send: 'Send', sent: 'Sent.', maybeSent: 'Might have been sent. Check the screen before resending.',
-      editSnippets: 'Edit snippets', snippetsHelp: 'One snippet per line (up to 20)'
+      sessionEnded: 'This session has ended.', reply: 'Reply', send: 'Send', sent: 'Sent.', maybeSent: 'Might have been sent. Check the screen before resending.',
+      editSnippets: 'Edit snippets', snippetsHelp: 'One snippet per line (up to 20)',
+      keyUp: 'Up', keyDown: 'Down', keyLeft: 'Left', keyRight: 'Right'
 ```
 
 `MODALS` becomes `['agentModal', 'linksModal', 'snippetModal']`.
+
+Add to `window.Deck` (the `handlers` object is defined later in the file but exists by the time this runs):
+
+```js
+    openLink: function (name) { handlers[name](); },
+```
 
 - [ ] **Step 4: `public/agent.js`**
 
@@ -1298,7 +1325,9 @@ Script tag: `<script src="/agent.js"></script>` after `agents.js`.
 (function () {
   'use strict';
   var D = window.Deck, $ = function (id) { return document.getElementById(id); };
-  var loading = '', sending = false, waitRefresh = false, shown = '', snippetsDrawn = '';
+  // shown: key of the agent on screen (kept when it ends or we go offline). op: id of the latest send, bumped on agent switch.
+  // lockKey/lockAt: an agent whose last send may have been delivered; Send stays off until a screen read started after lockAt.
+  var shown = '', shownAgent = null, op = 0, sending = false, lockKey = '', lockAt = 0, loading = '', snippetsDrawn = '';
   function keyOf(a) { return a ? a.handle + '/' + a.incarnationId : ''; }
   function showScreen(lines) {
     var el = $('agentScreen'), atBottom = el.scrollTop + el.clientHeight >= el.scrollHeight - 20;
@@ -1306,7 +1335,7 @@ Script tag: `<script src="/agent.js"></script>` after `agents.js`.
     if (atBottom) el.scrollTop = el.scrollHeight;
   }
   function renderSnippets(state) {
-    var list = (state && state.snippets) || [], sig = JSON.stringify(list), box = $('snippets');
+    var list = (state && state.snippets) || [], sig = JSON.stringify([list, D.t('editSnippets')]), box = $('snippets');
     if (sig === snippetsDrawn) return;
     snippetsDrawn = sig;
     while (box.firstChild) box.removeChild(box.firstChild);
@@ -1323,24 +1352,29 @@ Script tag: `<script src="/agent.js"></script>` after `agents.js`.
     box.appendChild(edit);
   }
   function refresh() {
-    var a = D.getSelected(), k = keyOf(a), state = D.getState();
-    $('agentEmpty').hidden = !!a; $('agentBody').hidden = !a;
-    // A different agent: drop its screen and any pending send state.
-    if (k !== shown) { shown = k; $('agentScreen').textContent = ''; sending = false; waitRefresh = false; }
-    if (!a) return;
+    var a = D.getSelected(), state = D.getState(), k = keyOf(a);
+    // A different agent was picked: start clean and ignore answers to sends made for the old one.
+    if (k && k !== shown) { shown = k; op++; sending = false; $('agentScreen').textContent = ''; }
+    if (a) shownAgent = a;
+    $('agentEmpty').hidden = !!shown; $('agentBody').hidden = !shown;
+    if (!shown) return;
+    var ended = !a && !!state, prompt = !!a && a.status === 'prompt', locked = !!a && lockKey === k;
     var badge = $('agentBadge'); while (badge.firstChild) badge.removeChild(badge.firstChild);
-    badge.appendChild(D.statusBadge(a.status));
-    $('agentName').textContent = a.title;
-    $('agentPin').hidden = a.agent.indexOf('claude') !== 0;
-    var prompt = a.status === 'prompt', off = !state || sending || waitRefresh;
-    $('agentNote').hidden = !prompt;
-    var keys = $('sendKeys').getElementsByTagName('button');
-    for (var i = 0; i < keys.length; i++) keys[i].disabled = off || (prompt && keys[i].getAttribute('data-key') !== 'ctrl-c');
-    $('replySend').disabled = off || prompt;
+    badge.appendChild(D.statusBadge(a ? a.status : 'idle'));
+    $('agentName').textContent = shownAgent.title;
+    $('agentScreen').classList.toggle('ended', ended);
+    $('agentNote').textContent = D.t(ended ? 'sessionEnded' : 'promptNote');
+    $('agentNote').hidden = !ended && !prompt;
+    $('agentPin').hidden = shownAgent.agent.indexOf('claude') !== 0;
+    $('agentFocus').disabled = $('agentPin').disabled = $('agentPr').disabled = $('agentPreview').disabled = !a;
+    // Offline, ended or busy: nothing can be sent. Ctrl-C stays usable through prompts and "maybe sent".
+    var down = !a || !state || sending, keys = $('sendKeys').getElementsByTagName('button');
+    for (var i = 0; i < keys.length; i++) keys[i].disabled = down || ((prompt || locked) && keys[i].getAttribute('data-key') !== 'ctrl-c');
+    $('replySend').disabled = down || prompt || locked;
     renderSnippets(state);
   }
   function loadScreen() {
-    var a = D.getSelected(), k = keyOf(a);
+    var a = D.getSelected(), k = keyOf(a), started = Date.now();
     if (!a || loading === k) return;
     loading = k;
     D.api('details', { handle: a.handle, incarnationId: a.incarnationId }, function (err, result) {
@@ -1348,24 +1382,25 @@ Script tag: `<script src="/agent.js"></script>` after `agents.js`.
       if (keyOf(D.getSelected()) !== k) return; // answer for an agent that's no longer shown
       if (err) { if (err.code === 'stale') { D.message(err.message); D.show('agents'); } return; }
       showScreen(result.screen);
-      if (waitRefresh) { waitRefresh = false; refresh(); }
+      if (lockKey === k && started > lockAt) { lockKey = ''; refresh(); }
     });
   }
   function send(body, after) {
-    var a = D.getSelected(), k = keyOf(a);
+    var a = D.getSelected(), k = keyOf(a), mine;
     if (!a || sending) return;
-    sending = true; refresh();
+    mine = ++op; sending = true; refresh();
     body.handle = a.handle; body.incarnationId = a.incarnationId;
     D.api('send', body, function (err, result) {
+      // The input may already be in that terminal: lock it even if the user has moved on.
+      if (err && (err.code === 'delivery_unknown' || err.code === 'offline')) { lockKey = k; lockAt = Date.now(); }
+      if (mine !== op) return;
       sending = false;
-      if (keyOf(D.getSelected()) !== k) return;
       if (!err) {
         if (after) after();
         if (result.screen) showScreen(result.screen);
         if (body.text) D.message(D.t('sent'));
       } else if (err.code === 'stale') { D.message(err.message); D.show('agents'); }
-      // The input may already be in the terminal: keep the text, but block resending until the screen refreshes.
-      else if (err.code === 'delivery_unknown' || err.code === 'offline') { waitRefresh = true; D.message(D.t('maybeSent')); }
+      else if (lockKey === k) D.message(D.t('maybeSent'));
       else D.message(err.message);
       refresh();
     });
@@ -1380,6 +1415,8 @@ Script tag: `<script src="/agent.js"></script>` after `agents.js`.
   };
   $('agentFocus').onclick = function () { D.action('focus', D.getSelected()); };
   $('agentPin').onclick = function () { D.action('pin', D.getSelected()); };
+  $('agentPr').onclick = function () { D.openLink('pr'); };
+  $('agentPreview').onclick = function () { D.openLink('preview'); };
   $('snippetForm').onsubmit = function (event) {
     event.preventDefault();
     var list = $('snippetText').value.split('\n').map(function (s) { return s.trim(); }).filter(function (s) { return s; });
@@ -1409,6 +1446,7 @@ Script tag: `<script src="/agent.js"></script>` after `agents.js`.
 .chips{display:flex;overflow-x:auto;-webkit-overflow-scrolling:touch;flex-shrink:0;padding-bottom:4px}
 .chip{flex-shrink:0;margin-right:8px;border-radius:24px;padding:8px 16px;min-height:44px;font-size:15px;display:flex;align-items:center}
 .chip .icon{width:20px;height:20px}
+.screen.ended{opacity:.45}
 .reply{display:flex;flex-shrink:0;margin-top:8px}
 .reply input{margin:0;flex:1;min-width:0}
 .reply button{margin-left:8px}
@@ -1428,6 +1466,10 @@ With the mock at 390×844 and 1024×768:
 - Pick the Codex agent (approval prompt): the note shows, every key and Send are disabled except ^C; ^C works.
 - Tap the pencil: the editor shows the three defaults. Enter `  ship it  `, a blank line and `deploy`, then Save. The chips become `ship it`, `deploy`. Paste 21 lines and save: the toast shows the snippet-list error and the old chips stay.
 - While a screen load is pending (throttle the network in DevTools), switch to another agent quickly: the screen never shows the first agent's lines under the second agent's name.
+- Throttled again: send text to agent A, switch to B and send to B before A answers. B's controls stay disabled until B's own answer arrives.
+- Pick the idle Claude (`t3`) and run `kill -USR2 <mock pid>`: within 2 s its screen greys out, the note says the session has ended, and every button is disabled. Picking another agent clears it.
+- Stop the mock while a send is in flight, then restart it: the toast says it might have been sent, and Send stays disabled until a fresh screen arrives (Ctrl‑C stays enabled).
+- Switch the language: the key labels (VoiceOver), pencil label and notes follow it.
 
 - [ ] **Step 8: Commit**
 
@@ -1465,7 +1507,8 @@ const screens = {
   t2: ['Would you like to run the following command?', '  $ rm -rf dist', '› 1. Yes, proceed', "  2. Yes, and don't ask again", '  3. No'],
   t3: ['● Updated README.md', '> ']
 };
-setInterval(() => { terms[0].lastOutputAt = Date.now(); }, 1000); // t1 keeps working
+setInterval(() => { if (terms[0]) terms[0].lastOutputAt = Date.now(); }, 1000); // t1 keeps working
+process.on('SIGUSR2', () => { terms.pop(); }); // kill -USR2 <pid> ends the last session
 const orca = async a => {
   const h = a[a.indexOf('--terminal') + 1];
   if (a[1] === 'list') return { terminals: terms };
@@ -1497,7 +1540,7 @@ At each size, check:
 - the card with Approve/Reject shows on Agents and Agent;
 - Deck keys and layout editing work as before;
 - the language switch updates every new string;
-- alerts: a hook request flashes amber, sets the title to `(1) Orca Deck`, and chimes after one earlier tap; muting the bell stops the chime but not the flash;
+- alerts: a hook request flashes amber, sets the title to `(2) Orca Deck` (one request plus the Codex terminal already showing a prompt), and chimes after one earlier tap; muting the bell stops the chime but not the flash;
 - with OS "Reduce motion" on (DevTools → Rendering → `prefers-reduced-motion`), the flash is a static border.
 
 Fix anything found, re-run `npm test`, and commit fixes with the task they belong to.
