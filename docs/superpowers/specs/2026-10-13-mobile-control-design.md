@@ -1,7 +1,7 @@
 # Orca Deck: control agents from any device at home
 
 Date: 2026-10-13
-Status: design approved in chat; revised after Codex review; awaiting spec review
+Status: design approved in chat; revised after two Codex reviews; awaiting spec review
 
 ## Goal
 
@@ -59,23 +59,36 @@ The static allowlist in `server.js` (`['/', '/app.js', '/style.css']`) gains `/a
 
 Pending Claude hook requests are **not** mapped onto terminals. A request knows its workspace and session ID but not its terminal, and one workspace can run several Claude sessions, so guessing would mark the wrong terminals. Requests stay as their own list in `/api/state` (as today) and are shown and alerted on by request ID.
 
-The approval regex (`/do you want to|yes, proceed|allow once|permission required|approve this/i`, used today by Continue) moves to one shared constant. No extra Orca calls per poll.
+The approval regex used today by Continue moves to one shared constant and is widened to cover Codex dialogs ("Would you like to run / make / grant …") and any visible broader-than-once option:
+
+```js
+var APPROVAL = /do you want to|would you like to|yes, proceed|allow once|permission required|approve this|don't ask again|for this session|always allow/i;
+```
+
+False positives only block typing (fail safe). Continue gets the wider regex too. No extra Orca calls per poll.
 
 ### `POST /api/send`
 
 Body: `{ handle, incarnationId, text?, key?, enter? }`
 
-Follows the same request shape as `/api/action`: a shared `AbortController` with a 13 s overall deadline, aborted if the client disconnects, and `checkConnection()` before every step that changes the terminal. The client XHR timeout (15 s) stays longer than the server deadline, so the server gives up before the phone does.
+Follows the same request shape as `/api/action`: a shared `AbortController` with a 13 s overall deadline, aborted if the client disconnects, and `checkConnection()` before every step that changes the terminal. The client XHR timeout (15 s) stays longer than the server deadline, so the server usually gives up before the phone does. Cancellation can only stop input that hasn't been handed to Orca yet; see step 5 for what happens after.
 
 1. Same auth, origin and incarnation checks as `/api/action` (fresh `terminals(true, signal)` lookup).
 2. Exactly one of `text` or `key`:
    - `text`: string, 1–2000 chars, no control characters (`/[\u0000-\u001f\u007f]/` rejected). `enter` (boolean) appends Enter.
    - `key`: one of `enter, esc, tab, up, down, left, right, y, n, ctrl-c`, mapped server-side:
      `enter` → `--enter` with empty text, `esc` → `\x1b`, `tab` → `\t`, `up` → `\x1b[A`, `down` → `\x1b[B`, `right` → `\x1b[C`, `left` → `\x1b[D`, `y`/`n` → literal, `ctrl-c` → `--interrupt`.
-3. Refuse (409) if a Claude hook request is pending for the agent's workspace (same rule as Continue).
-4. Read the screen (`orca terminal read --screen`). Refuse (409) unless `terminal.source === 'screen'`. Refuse (409) if the screen matches the approval regex. There is no override: approvals are handled by the Approve/Reject card (Claude) or on the Mac (Codex and other dialogs). `ctrl-c` is the one exception and is always allowed, because interrupting never approves anything.
-5. `checkConnection()`, then send with `orca terminal send --terminal <handle> --text <payload> [--enter]` (or `--interrupt`).
-6. Once the send has succeeded, the input counts as delivered. Read the screen again and return `{ ok: true, screen }`. If that follow-up read fails, still return `{ ok: true, screen: null }` so the client never resends delivered input.
+3. **`ctrl-c` skips steps 4–5** and goes straight to `orca terminal send --interrupt`, exactly like the existing Interrupt action: interrupting never approves anything, so it's allowed with a prompt on screen, a pending request, or no readable screen.
+4. Refuse (409, `blocked`) if a Claude hook request is pending for the agent's workspace (same rule as Continue).
+5. Read the screen (`orca terminal read --screen`). Refuse (409, `no_screen`) unless `terminal.source === 'screen'`. Refuse (409, `blocked`) if the screen matches the approval regex. There is no override: approvals are handled by the Approve/Reject card (Claude) or on the Mac (Codex and other dialogs).
+6. `checkConnection()`, then send with `orca terminal send --terminal <handle> --text <payload> [--enter]`. Before this call, a failure means nothing was sent. If this call itself fails or times out, Orca may already have written the input, so the server returns 409 `delivery_unknown` instead of a plain failure.
+7. Once the send has succeeded, the input counts as delivered. Read the screen again and return `{ ok: true, screen }`. If that follow-up read fails, still return `{ ok: true, screen: null }` so the client never resends delivered input.
+
+**Residual race (accepted):** the screen check and the send are two separate Orca calls. A prompt that appears in the gap between them (normally well under a second) could receive the input. The terminal offers no atomic "send only if no prompt" operation, so this can't be closed from the deck. The mitigations are: the check runs immediately before the send, Claude permission requests go through the hook (which blocks sends for that workspace while pending), and the widened regex covers known dialogs.
+
+### Error codes
+
+`failure(status, message, code)` gains an optional third argument. The JSON body becomes `{ error, code }`, and `api()` in `app.js` passes `{ status, code }` on the `Error` it hands to callbacks, so the UI never matches on translated text. Codes used by the new UI: `stale` (incarnation changed or agent gone), `blocked` (pending request or approval on screen), `no_screen`, `timeout` (deadline or disconnect before send), `delivery_unknown`.
 
 **Assumption to verify first:** Orca passes raw escape bytes in `--text` through to the PTY unchanged. If it doesn't, the key row ships with Enter, y, n and Ctrl‑C only, and the other keys are dropped from the allowlist.
 
@@ -98,6 +111,7 @@ Every new `failure()` message gets an entry in the `EN` map; the existing transl
 - Width < 700 px: bottom tab bar. Otherwise: tabs in the top bar.
 - Last view saved per device in localStorage (`orcaDeckView`). Default: Agents when width < 700 px, Deck otherwise.
 - **Approval card on every view:** the amber card (tool, project, request selector, exact input) is pinned at the top of every view while a hook request is pending. It gets its own Approve and Reject buttons, shown only in the Agents and Agent views. In the Deck view those buttons are hidden and the existing Approve/Reject keys in the editable grid are used, so layout editing is unchanged. Both sets call the same `decide()`.
+- **Fix to existing request selection:** today, after a decision `selectedRequest` is cleared but `requestChosen` stays `true` (`app.js:154`), so the next single request is never selected and its selector is hidden; the card shows nothing and Approve/Reject stay disabled. New rule: whenever there's exactly one request and no valid selection, select it. This also covers a request that expired or was decided on another device. To stop a double tap approving a request you haven't seen, Approve/Reject ignore taps for 1 s after the shown request changes.
 
 ### Agents view (`agents.js`)
 
@@ -112,8 +126,9 @@ Every new `failure()` message gets an entry in the `EN` map; the existing transl
 - Live screen fetched from `/api/details`. It fills the remaining height, refreshes with the 2 s poll, and stays pinned to the bottom unless the user has scrolled up. Every response is checked against the `handle` + `incarnationId` it was requested for; a response for any other agent is dropped. Changing the selection clears the screen and any send in progress.
 - Key row: Esc ↑ ↓ ← → Tab y n Enter, with Ctrl‑C styled as danger.
 - Snippet chips above the reply box; tapping a chip fills the box (does not send). A pencil chip opens a simple editor (one snippet per line).
-- Reply box + Send button. Send and keys are disabled while a request is in flight, while offline, and while the agent's status is `prompt` (with a note: "Approval on screen — use the card or the Mac").
+- Reply box + Send button. Send and keys are disabled while a request is in flight, while offline, and while the agent's status is `prompt` (with a note: "Approval on screen — use the card or the Mac"). Ctrl‑C is the exception: it stays enabled in `prompt` state and is disabled only while offline or while another send is in flight.
 - On success the box is cleared, including when `screen` is `null`. On failure the text stays in the box.
+- On `delivery_unknown` the text stays in the box, the toast says "Might have been sent — check the screen before resending", and Send stays disabled until the next screen refresh arrives, so a quick second tap can't double-send.
 
 ### Deck view (existing `app.js`)
 
@@ -152,10 +167,10 @@ window.Deck = {
 
 ## Error handling
 
-- Stale incarnation (409): toast, return to Agents.
+- Stale incarnation (409 `stale`): toast, return to Agents.
 - Agent gone: removed from Agents; if open, the screen greys out with "session ended" and sending is disabled.
-- Send refused (409: pending request, approval on screen, no screen, timeout): localized toast; text kept.
-- Send failed before delivery: text kept, localized toast.
+- Send refused (409 `blocked`, `no_screen`, `timeout`): nothing was sent; localized toast; text kept.
+- Delivery unknown (409 `delivery_unknown`): text kept, "check the screen before resending" toast, Send disabled until the next screen refresh.
 - Delivered but follow-up read failed: treated as success (box cleared); the next poll refreshes the screen.
 - Offline: dot turns red, Send and keys disabled, alerts paused and memory reset; polling resumes automatically.
 
@@ -163,8 +178,8 @@ window.Deck = {
 
 - No change to pairing, token, origin/host checks or CSP.
 - Control bytes only via the named-key allowlist; free text rejects control characters.
-- No typing into a terminal with an approval prompt on screen, or while a Claude request is pending for that workspace; this keeps "approve once, never always allow" true.
-- Sending needs a real current screen and runs under a deadline that's cancelled if the client disconnects, so input never arrives late after the phone reported failure.
+- No typing into a terminal with a known approval prompt on screen, or while a Claude request is pending for that workspace. Together with the widened regex this keeps "approve once, never always allow" true for every dialog the regex recognises; see the residual race note under `/api/send` for the one gap.
+- Sending needs a real current screen and runs under a deadline that's cancelled if the client disconnects. Input already handed to Orca can't be recalled; that case is reported as `delivery_unknown`, never as a plain failure.
 - **"LAN only" is not enforced by the server.** It listens on all IPv4 interfaces, and host checks accept any local address, including VPN interfaces. The README will say so: anyone paired can type into your agents, so keep the Mac off routed VPNs while the deck runs, or block port 8766 on those interfaces. Binding to a single interface is out of scope.
 
 ## Testing
@@ -172,7 +187,10 @@ window.Deck = {
 Server (`node:test`, fake Orca, as today):
 - status classification (prompt via preview, working, idle); requests not mapped to terminals
 - send: key allowlist + mapping, text limits and control-char rejection, `text`/`key` exclusivity
-- send refused when: approval regex on screen (no override), `source !== 'screen'`, hook request pending for the workspace; `ctrl-c` still allowed with an approval prompt on screen
+- send refused when: approval regex on screen (no override; includes Codex "Would you like to grant these permissions?" and "for this session" options), `source !== 'screen'`, hook request pending for the workspace
+- `ctrl-c` allowed in all three of those cases
+- send returns `delivery_unknown` when the Orca send call fails or times out
+- every refusal carries the right `code`
 - send returns `{ ok: true, screen: null }` when the follow-up read fails
 - send aborted when the client disconnects before the send step (Orca `send` never called)
 - stale incarnation refused
@@ -181,6 +199,7 @@ Server (`node:test`, fake Orca, as today):
 - every new error has an English version (existing test)
 
 Client:
+- request selection: a single request arriving after a decision is selected; Approve/Reject ignore taps for 1 s after it appears (manual, mock server).
 - `alerts.diff` unit tests in Node: baseline, needs (request and prompt), quiet threshold via `workingSince`, 30 s cooldown, reset after offline.
 - Manual pass on the mock server at 1024×768, 768×1024 and 390×844, including switching agents while a screen load is in flight.
 
