@@ -39,11 +39,18 @@ const EN = {
   'Không đọc được màn hình hiện tại. Hãy thao tác trên Mac.': "Can't read the current screen. Use the Mac.",
   'Có hộp duyệt trong terminal. Hãy xử lý trên Mac.': 'There is an approval prompt in the terminal. Handle it on the Mac.',
   'Không có thao tác này.': 'Unknown action.',
+  'Gửi chữ hoặc một phím.': 'Send text or one key.',
+  'Nội dung không hợp lệ.': 'Invalid text.',
+  'Phím không hợp lệ.': 'Invalid key.',
+  'Có thể đã gửi. Xem màn hình trước khi gửi lại.': 'It may have been sent. Check the screen before sending again.',
   'Có lỗi khi xử lý. Vui lòng thử lại.': 'Something went wrong. Please try again.'
 };
 
 // Approval dialogs from Claude Code and Codex, plus any visible broader-than-once option.
 const APPROVAL = /do you want to|would you like to|yes, proceed|allow once|permission required|approve this|don't ask again|for this session|always allow/i;
+const CONTROL = /[\u0000-\u001f\u007f]/;
+// Terminal bytes for the deck's key row. Ctrl-C is handled separately with --interrupt.
+const SEND_KEYS = { enter: '', esc: '\x1b', tab: '\t', up: '\x1b[A', down: '\x1b[B', right: '\x1b[C', left: '\x1b[D', y: 'y', n: 'n' };
 function failure(status, message, code) { return Object.assign(new Error(message), { status, code }); }
 function agentStatus(preview, lastOutputAt, now) {
   if (APPROVAL.test(preview || '')) return 'prompt';
@@ -117,6 +124,16 @@ function createDeck({ config, orca = runOrca, saveConfig = () => {}, requestTime
     if (res.destroyed || res.writableEnded) return;
     res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
     res.end(JSON.stringify(value));
+  }
+  // One 13 s deadline per terminal action, cancelled if the browser disconnects.
+  function guard(res) {
+    const controller = new AbortController();
+    const deadline = setTimeout(() => controller.abort(), 13000);
+    res.once('close', () => { clearTimeout(deadline); controller.abort(); });
+    return {
+      options: { signal: controller.signal },
+      check() { if (res.destroyed || controller.signal.aborted) throw failure(409, 'Thao tác đã hết thời gian hoặc mất kết nối.', 'timeout'); }
+    };
   }
   const server = http.createServer(async (req, res) => {
     res.setHeader('X-Content-Type-Options', 'nosniff');
@@ -201,16 +218,41 @@ function createDeck({ config, orca = runOrca, saveConfig = () => {}, requestTime
         const { preview, ...shown } = agent;
         return send(res, 200, { agent: shown, screen: output.terminal?.tail || [] });
       }
+      if (route === '/api/send') {
+        const hasText = typeof body.text === 'string', hasKey = typeof body.key === 'string';
+        if (hasText === hasKey) throw failure(400, 'Gửi chữ hoặc một phím.');
+        if (hasText && (!body.text || body.text.length > 2000 || CONTROL.test(body.text))) throw failure(400, 'Nội dung không hợp lệ.');
+        if (hasKey && body.key !== 'ctrl-c' && !Object.hasOwn(SEND_KEYS, body.key)) throw failure(400, 'Phím không hợp lệ.');
+        const { options, check } = guard(res);
+        const agent = (await terminals(true, options.signal)).find(t => t.handle === body.handle && t.incarnationId === body.incarnationId);
+        if (!agent) throw failure(409, 'Phiên agent đã thay đổi. Hãy chọn lại.', 'stale');
+        check();
+        const args = ['terminal', 'send', '--terminal', agent.handle];
+        if (body.key === 'ctrl-c') {
+          // Interrupting never approves anything, so it skips the prompt checks like the Interrupt key.
+          args.push('--interrupt');
+        } else {
+          if ([...requests.values()].some(r => r.info.workspace === agent.workspace)) throw failure(409, 'Project này đang có yêu cầu duyệt. Hãy xử lý yêu cầu trước.', 'blocked');
+          const output = await orca(['terminal', 'read', '--terminal', agent.handle, '--screen'], options);
+          if (output.terminal?.source !== 'screen') throw failure(409, 'Không đọc được màn hình hiện tại. Hãy thao tác trên Mac.', 'no_screen');
+          if (APPROVAL.test((output.terminal.tail || []).join('\n'))) throw failure(409, 'Có hộp duyệt trong terminal. Hãy xử lý trên Mac.', 'blocked');
+          check();
+          const payload = hasText ? body.text : SEND_KEYS[body.key];
+          if (payload) args.push('--text', payload);
+          if (body.key === 'enter' || (hasText && body.enter === true)) args.push('--enter');
+        }
+        // shortcut: the screen check and the send are separate Orca calls, so a prompt appearing in between can receive input; needs an atomic Orca guard to close.
+        // Once Orca has the call, the input may already be written, so any failure here is "maybe sent", never a plain error.
+        try { await orca(args, options); }
+        catch { throw failure(409, 'Có thể đã gửi. Xem màn hình trước khi gửi lại.', 'delivery_unknown'); }
+        let screen = null;
+        try { screen = (await orca(['terminal', 'read', '--terminal', agent.handle, '--screen'], options)).terminal?.tail || null; } catch {}
+        return send(res, 200, { ok: true, screen });
+      }
       if (route === '/api/action') {
         if (!['focus', 'continue', 'interrupt', 'pin', 'pr', 'preview'].includes(body.action)) throw failure(400, 'Nút không hợp lệ.');
-        const controller = new AbortController();
-        const deadline = setTimeout(() => controller.abort(), 13000);
-        res.once('close', () => { clearTimeout(deadline); controller.abort(); });
-        const checkConnection = () => {
-          if (res.destroyed || controller.signal.aborted) throw failure(409, 'Thao tác đã hết thời gian hoặc mất kết nối.', 'timeout');
-        };
-        const options = { signal: controller.signal };
-        const agent = (await terminals(true, controller.signal)).find(t => t.handle === body.handle && t.incarnationId === body.incarnationId);
+        const { options, check: checkConnection } = guard(res);
+        const agent = (await terminals(true, options.signal)).find(t => t.handle === body.handle && t.incarnationId === body.incarnationId);
         if (!agent) throw failure(409, 'Phiên agent đã thay đổi. Hãy chọn lại.', 'stale');
         checkConnection();
         if (body.action === 'pin') {

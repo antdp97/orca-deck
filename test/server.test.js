@@ -283,3 +283,142 @@ test('refusals carry a stable code', async t => {
   const plain = await f.call('/api/decision', { id: 'x', decision: 'always' });
   assert.equal('code' in (await plain.json()), false);
 });
+
+async function sendFixture(t, opts = {}) {
+  const calls = [];
+  let reads = 0;
+  const f = await fixture(t, { requestTimeout: 1000, orca: async args => {
+    calls.push(args);
+    if (args[1] === 'list') return { terminals: [{ handle: 'term_live', incarnationId: 'inc_live', agentIdentity: 'claude', title: 'Claude', worktreePath: '/tmp/project', connected: true, writable: true }] };
+    if (args[1] === 'read') {
+      reads++;
+      if (reads > 1 && opts.failAfterSend) throw new Error('read failed');
+      return { terminal: { source: opts.source || 'screen', tail: opts.tail || ['Ready'] } };
+    }
+    if (args[1] === 'send' && opts.sendError) throw opts.sendError;
+    return { accepted: true };
+  } });
+  const sendTo = body => f.call('/api/send', { handle: 'term_live', incarnationId: 'inc_live', ...body });
+  return { ...f, calls, sendTo, sends: () => calls.filter(a => a[1] === 'send') };
+}
+
+test('send types text with Enter into the exact session and returns the new screen', async t => {
+  const f = await sendFixture(t);
+  const res = await f.sendTo({ text: 'run the tests', enter: true });
+  assert.equal(res.status, 200);
+  assert.deepEqual(await res.json(), { ok: true, screen: ['Ready'] });
+  assert.deepEqual(f.sends(), [['terminal', 'send', '--terminal', 'term_live', '--text', 'run the tests', '--enter']]);
+});
+
+test('send passes Unicode text through unchanged', async t => {
+  const f = await sendFixture(t);
+  assert.equal((await f.sendTo({ text: 'Sửa lỗi này nhé 👍' })).status, 200);
+  assert.deepEqual(f.sends()[0].slice(4), ['--text', 'Sửa lỗi này nhé 👍']);
+});
+
+test('send maps allowlisted keys to terminal input', async t => {
+  const f = await sendFixture(t);
+  const expected = {
+    esc: ['--text', '\x1b'], tab: ['--text', '\t'], up: ['--text', '\x1b[A'], down: ['--text', '\x1b[B'],
+    right: ['--text', '\x1b[C'], left: ['--text', '\x1b[D'], y: ['--text', 'y'], n: ['--text', 'n'],
+    enter: ['--enter'], 'ctrl-c': ['--interrupt']
+  };
+  for (const [key, args] of Object.entries(expected)) {
+    assert.equal((await f.sendTo({ key })).status, 200, key);
+    assert.deepEqual(f.sends().at(-1).slice(4), args, key);
+  }
+});
+
+test('send rejects bad input before touching Orca', async t => {
+  const f = await sendFixture(t);
+  const bad = [{}, { text: 'a', key: 'esc' }, { text: '' }, { text: 'x'.repeat(2001) }, { text: 'a\nb' }, { text: '\x1b[A' }, { text: 5 }, { key: 'f1' }, { key: 'constructor' }, { key: '__proto__' }];
+  for (const body of bad) assert.equal((await f.sendTo(body)).status, 400, JSON.stringify(body));
+  assert.equal(f.calls.length, 0);
+});
+
+test('send refuses an approval prompt on screen, with no override', async t => {
+  const f = await sendFixture(t, { tail: ['Would you like to grant these permissions?', '› 1. Yes, grant for this session', '  2. No'] });
+  for (const body of [{ text: 'yes', enter: true }, { key: 'enter' }, { key: 'down' }, { key: 'enter', confirm: true }]) {
+    const res = await f.sendTo(body);
+    assert.equal(res.status, 409);
+    assert.equal((await res.json()).code, 'blocked');
+  }
+  assert.equal(f.sends().length, 0);
+});
+
+test('send refuses without a rendered screen', async t => {
+  const f = await sendFixture(t, { source: 'screen-unavailable' });
+  const res = await f.sendTo({ text: 'hi' });
+  assert.equal(res.status, 409);
+  assert.equal((await res.json()).code, 'no_screen');
+  assert.equal(f.sends().length, 0);
+});
+
+test('send refuses while a Claude request is pending for the workspace', async t => {
+  const f = await sendFixture(t);
+  await f.call('/api/state');
+  const response = f.hook();
+  const request = await f.pending();
+  const res = await f.sendTo({ text: 'hi' });
+  assert.equal((await res.json()).code, 'blocked');
+  assert.equal(f.sends().length, 0);
+  await f.call('/api/decision', { id: request.id, decision: 'deny' });
+  await response;
+});
+
+test('Ctrl-C still works with an approval prompt, a pending request and no screen', async t => {
+  const f = await sendFixture(t, { source: 'screen-unavailable', tail: ['Do you want to proceed?'] });
+  await f.call('/api/state');
+  const response = f.hook();
+  const request = await f.pending();
+  assert.equal((await f.sendTo({ key: 'ctrl-c' })).status, 200);
+  assert.deepEqual(f.sends(), [['terminal', 'send', '--terminal', 'term_live', '--interrupt']]);
+  await f.call('/api/decision', { id: request.id, decision: 'deny' });
+  await response;
+});
+
+test('send reports delivery_unknown when the Orca send call fails, Ctrl-C included', async t => {
+  const f = await sendFixture(t, { sendError: Object.assign(new Error('Orca: timeout'), { status: 503 }) });
+  for (const body of [{ text: 'hi', enter: true }, { key: 'ctrl-c' }]) {
+    const res = await f.sendTo(body);
+    assert.equal(res.status, 409);
+    assert.equal((await res.json()).code, 'delivery_unknown');
+  }
+});
+
+test('send counts delivered input as success when the follow-up read fails', async t => {
+  const f = await sendFixture(t, { failAfterSend: true });
+  assert.deepEqual(await (await f.sendTo({ text: 'hi' })).json(), { ok: true, screen: null });
+});
+
+test('send refuses a stale incarnation', async t => {
+  const f = await sendFixture(t);
+  const res = await f.sendTo({ incarnationId: 'old', text: 'hi' });
+  assert.equal((await res.json()).code, 'stale');
+  assert.equal(f.sends().length, 0);
+});
+
+test('send is cancelled if the browser disconnects before the send step', async t => {
+  let releaseRead, enteredRead, sent = false;
+  const reading = new Promise(resolve => { enteredRead = resolve; });
+  const hold = new Promise(resolve => { releaseRead = resolve; });
+  const f = await fixture(t, { orca: async args => {
+    if (args[1] === 'list') return { terminals: [{ handle: 'term_live', incarnationId: 'inc_live', agentIdentity: 'claude', title: 'Claude', worktreePath: '/tmp/project', connected: true, writable: true }] };
+    if (args[1] === 'read') { enteredRead(); await hold; return { terminal: { source: 'screen', tail: ['Ready'] } }; }
+    if (args[1] === 'send') sent = true;
+    return { accepted: true };
+  } });
+  const controller = new AbortController();
+  const response = fetch(f.base + '/api/send', { method: 'POST', signal: controller.signal,
+    headers: { Authorization: 'Bearer ' + f.config.token, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ handle: 'term_live', incarnationId: 'inc_live', text: 'hi' })
+  }).catch(() => null);
+  // Fails fast (instead of hanging) while /api/send doesn't exist yet and answers 404 without reading.
+  assert.equal(await Promise.race([reading.then(() => 'read'), response.then(() => 'response')]), 'read');
+  controller.abort();
+  await response;
+  await new Promise(r => setTimeout(r, 15));
+  releaseRead();
+  await new Promise(r => setTimeout(r, 15));
+  assert.equal(sent, false);
+});
