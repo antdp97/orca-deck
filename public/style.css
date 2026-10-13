@@ -69,6 +69,17 @@ pre{white-space:pre-wrap;word-break:break-word;color:#e4dccb;font-family:Menlo,m
 .tab .icon{margin-bottom:2px}
 .tab.active{background:#b5e895;border-color:#b5e895;color:#182318;font-weight:600}
 @media (min-width:700px){.tabs{order:-1;margin:0 0 12px}.tab{flex-direction:row;min-height:48px;font-size:15px}.tab .icon{margin:0 8px 0 0}}
+/* Agents list */
+.row{display:flex;align-items:center;width:100%;text-align:left;margin-bottom:10px;min-height:64px;padding:10px 14px}
+.row-text{flex:1;min-width:0}
+.row-text strong,.row-text small{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.row-text small{color:#9aac9e;font-size:13px;margin-top:3px}
+.row-side{font-size:13px;color:#9aac9e;margin-left:10px;flex-shrink:0}
+.request-row{background:#2a2620;border-color:#7a6a3e}
+.status{display:inline-flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:50%;margin-right:12px;flex-shrink:0;background:#2c3434;color:#9aac9e}
+.status .icon{width:20px;height:20px}
+.status.prompt{background:#e8c56a;color:#2a2210}
+.status.working{background:#2f4a2a;color:#b0ec8d}
 /* Alerts */
 .flash-needs main{-webkit-animation:flash-needs 1s ease-out;animation:flash-needs 1s ease-out}
 .flash-quiet main{-webkit-animation:flash-quiet 1s ease-out;animation:flash-quiet 1s ease-out}

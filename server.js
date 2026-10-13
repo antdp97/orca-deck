@@ -148,7 +148,7 @@ function createDeck({ config, orca = runOrca, saveConfig = () => {}, requestTime
       if (!['localhost', '127.0.0.1', '[::1]', ...localAddresses()].includes(hostname)) throw failure(403, 'Địa chỉ máy chủ không hợp lệ.');
       if (req.headers.origin && req.headers.origin !== 'http://' + host) throw failure(403, 'Chỉ thao tác từ trang Orca Deck.');
       const route = new URL(req.url, 'http://' + host).pathname;
-      if (req.method === 'GET' && ['/', '/app.js', '/style.css', '/alerts.js'].includes(route)) {
+      if (req.method === 'GET' && ['/', '/app.js', '/style.css', '/alerts.js', '/agents.js'].includes(route)) {
         const filename = route === '/' ? 'index.html' : route.slice(1);
         const type = filename.endsWith('.js') ? 'application/javascript' : filename.endsWith('.css') ? 'text/css' : 'text/html';
         res.writeHead(200, { 'Content-Type': type + '; charset=utf-8', 'Cache-Control': 'no-store' });
