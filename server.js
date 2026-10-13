@@ -224,6 +224,9 @@ function createDeck({ config, orca = runOrca, saveConfig = () => {}, requestTime
         const agent = (await terminals()).find(t => t.handle === body.handle && t.incarnationId === body.incarnationId);
         if (!agent) throw failure(409, 'Phiên agent đã thay đổi. Hãy chọn lại.', 'stale');
         const output = await orca(['terminal', 'read', '--terminal', agent.handle, '--screen']);
+        if (output.terminal?.source !== 'screen') throw failure(409, 'Không đọc được màn hình hiện tại. Hãy thao tác trên Mac.', 'no_screen');
+        // Orca's read doesn't say which session it read, so confirm the handle still belongs to the same one afterwards.
+        if (!(await terminals(true)).some(t => t.handle === agent.handle && t.incarnationId === agent.incarnationId)) throw failure(409, 'Phiên agent đã thay đổi. Hãy chọn lại.', 'stale');
         const { preview, ...shown } = agent;
         return send(res, 200, { agent: shown, screen: output.terminal?.tail || [] });
       }

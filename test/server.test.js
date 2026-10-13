@@ -218,7 +218,8 @@ test('details reads the current screen of the exact session only', async t => {
   const ok = await (await f.call('/api/details', { handle: 'term_live', incarnationId: 'inc_live' })).json();
   assert.deepEqual(ok.screen, ['Ready for your prompt']);
   assert.equal(ok.agent.project, 'project');
-  assert.deepEqual(f.calls.at(-1), ['terminal', 'read', '--terminal', 'term_live', '--screen']);
+  assert.deepEqual(f.calls.at(-2), ['terminal', 'read', '--terminal', 'term_live', '--screen']);
+  assert.deepEqual(f.calls.at(-1), ['terminal', 'list']);
   assert.equal((await f.call('/api/details', { handle: 'term_live', incarnationId: 'old' })).status, 409);
   assert.equal((await f.call('/api/details', { handle: 'term_live', incarnationId: 'inc_live' }, 'wrong')).status, 401);
 });
@@ -448,4 +449,29 @@ test('serves the new scripts without pairing', async t => {
     assert.equal(res.status, 200, file);
     assert.match(res.headers.get('content-type'), /javascript/);
   }
+});
+
+test('details refuses a screen read after the session on that handle was replaced', async t => {
+  let incarnation = 'inc_live';
+  const f = await fixture(t, { orca: async args => {
+    if (args[1] === 'list') return { terminals: [{ handle: 'term_live', incarnationId: incarnation, agentIdentity: 'claude', title: 'Claude', worktreePath: '/tmp/project', connected: true, writable: true }] };
+    if (args[1] === 'read') return { terminal: { source: 'screen', tail: ['new session screen'] } };
+    return { accepted: true };
+  } });
+  await f.call('/api/state'); // caches inc_live
+  incarnation = 'inc_new';
+  const res = await f.call('/api/details', { handle: 'term_live', incarnationId: 'inc_live' });
+  assert.equal(res.status, 409);
+  assert.equal((await res.json()).code, 'stale');
+});
+
+test('details refuses when Orca cannot render the current screen', async t => {
+  const f = await fixture(t, { orca: async args => {
+    if (args[1] === 'list') return { terminals: [{ handle: 'term_live', incarnationId: 'inc_live', agentIdentity: 'claude', title: 'Claude', worktreePath: '/tmp/project', connected: true, writable: true }] };
+    if (args[1] === 'read') return { terminal: { source: 'screen-unavailable', tail: ['old scrollback'] } };
+    return { accepted: true };
+  } });
+  const res = await f.call('/api/details', { handle: 'term_live', incarnationId: 'inc_live' });
+  assert.equal(res.status, 409);
+  assert.equal((await res.json()).code, 'no_screen');
 });
