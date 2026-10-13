@@ -226,8 +226,60 @@ test('details reads the current screen of the exact session only', async t => {
 test('every server error has an English version, sent when the page asks for it', async t => {
   const source = require('node:fs').readFileSync(require.resolve('../server'), 'utf8');
   const { EN } = require('../server');
-  for (const [, text] of source.matchAll(/failure\(\d+, '([^']+)'\)/g)) assert.ok(EN[text], 'missing English for: ' + text);
+  for (const [, text] of source.matchAll(/failure\(\d+, '([^']+)'[,)]/g)) assert.ok(EN[text], 'missing English for: ' + text);
   const f = await fixture(t);
   assert.equal((await (await f.call('/api/state', undefined, 'wrong', { 'X-Deck-Lang': 'en' })).json()).error, 'Pair this device first.');
   assert.equal((await (await f.call('/api/state', undefined, 'wrong')).json()).error, 'Cần ghép nối thiết bị.');
+});
+
+test('agentStatus recognises Claude and Codex approval wording and output age', () => {
+  const { agentStatus } = require('../server');
+  for (const text of ['Do you want to proceed?', 'Would you like to run the following command?', 'Would you like to grant these permissions?', "2. Yes, and don't ask again", 'Yes, for this session', 'Always allow']) {
+    assert.equal(agentStatus(text, 0, 1e9), 'prompt', text);
+  }
+  assert.equal(agentStatus('Ready', 1e9 - 5000, 1e9), 'working');
+  assert.equal(agentStatus('Ready', 1e9 - 5001, 1e9), 'idle');
+  assert.equal(agentStatus('', 0, 1e9), 'idle');
+});
+
+test('state reports each agent status from its own terminal and hides the preview', async t => {
+  const now = Date.now();
+  const base = { agentIdentity: 'claude', worktreePath: '/tmp/project', connected: true, writable: true };
+  const list = [
+    { ...base, handle: 'a', incarnationId: '1', title: 'A', lastOutputAt: now - 60000, preview: 'Would you like to grant these permissions?' },
+    { ...base, handle: 'b', incarnationId: '1', title: 'B', lastOutputAt: now - 1000, preview: 'compiling' },
+    { ...base, handle: 'c', incarnationId: '1', title: 'C', lastOutputAt: now - 60000, preview: 'done' }
+  ];
+  const f = await fixture(t, { orca: async args => args[1] === 'list' ? { terminals: list } : { accepted: true } });
+  const state = await (await f.call('/api/state')).json();
+  assert.deepEqual(state.agents.map(a => a.status), ['prompt', 'working', 'idle']);
+  assert.equal(state.agents[1].lastOutputAt, now - 1000);
+  assert.equal('preview' in state.agents[0], false);
+});
+
+test('a pending Claude request does not mark terminals as waiting', async t => {
+  const f = await fixture(t, { requestTimeout: 1000 });
+  await f.call('/api/state');
+  const response = f.hook();
+  const request = await f.pending();
+  const state = await (await f.call('/api/state')).json();
+  assert.equal(state.agents[0].status, 'idle');
+  assert.equal(state.requests.length, 1);
+  await f.call('/api/decision', { id: request.id, decision: 'deny' });
+  await response;
+});
+
+test('refusals carry a stable code', async t => {
+  const f = await fixture(t, { requestTimeout: 1000 });
+  const stale = await f.call('/api/action', { action: 'interrupt', handle: 'term_live', incarnationId: 'old' });
+  assert.equal((await stale.json()).code, 'stale');
+  await f.call('/api/state');
+  const response = f.hook();
+  const request = await f.pending();
+  const blocked = await f.call('/api/action', { action: 'continue', handle: 'term_live', incarnationId: 'inc_live' });
+  assert.equal((await blocked.json()).code, 'blocked');
+  await f.call('/api/decision', { id: request.id, decision: 'deny' });
+  await response;
+  const plain = await f.call('/api/decision', { id: 'x', decision: 'always' });
+  assert.equal('code' in (await plain.json()), false);
 });

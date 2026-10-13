@@ -42,7 +42,13 @@ const EN = {
   'Có lỗi khi xử lý. Vui lòng thử lại.': 'Something went wrong. Please try again.'
 };
 
-function failure(status, message) { return Object.assign(new Error(message), { status }); }
+// Approval dialogs from Claude Code and Codex, plus any visible broader-than-once option.
+const APPROVAL = /do you want to|would you like to|yes, proceed|allow once|permission required|approve this|don't ask again|for this session|always allow/i;
+function failure(status, message, code) { return Object.assign(new Error(message), { status, code }); }
+function agentStatus(preview, lastOutputAt, now) {
+  if (APPROVAL.test(preview || '')) return 'prompt';
+  return now - (lastOutputAt || 0) <= 5000 ? 'working' : 'idle';
+}
 function equalSecret(actual, expected) {
   if (typeof actual !== 'string' || typeof expected !== 'string') return false;
   const a = Buffer.from(actual), b = Buffer.from(expected);
@@ -79,7 +85,7 @@ async function runOrca(args, { signal } = {}) {
     if (!result.ok) throw new Error(result.error?.message || 'Orca không phản hồi.');
     return result.result;
   } catch (err) {
-    if (err.name === 'AbortError') throw failure(409, 'Thao tác hết thời gian hoặc mất kết nối. Kiểm tra Mac trước khi thử lại.');
+    if (err.name === 'AbortError') throw failure(409, 'Thao tác hết thời gian hoặc mất kết nối. Kiểm tra Mac trước khi thử lại.', 'timeout');
     let message = err.message;
     try { message = JSON.parse(err.stdout).error.message; } catch {}
     throw failure(503, 'Orca: ' + message.slice(0, 300));
@@ -98,7 +104,7 @@ function createDeck({ config, orca = runOrca, saveConfig = () => {}, requestTime
       terminalCache = (result.terminals || []).filter(t => t.connected && t.writable && !t.orphaned && /^(claude|codex)/.test(t.agentIdentity || '')).map(t => ({
         handle: t.handle, incarnationId: t.incarnationId, agent: t.agentIdentity,
         title: t.title || t.agentIdentity, workspace: t.worktreePath, worktreeId: t.worktreeId,
-        project: path.basename(t.worktreePath || '')
+        project: path.basename(t.worktreePath || ''), lastOutputAt: t.lastOutputAt || 0, preview: t.preview || ''
       }));
       cacheAt = Date.now();
       return terminalCache;
@@ -165,7 +171,10 @@ function createDeck({ config, orca = runOrca, saveConfig = () => {}, requestTime
       if (route === '/api/state' && req.method === 'GET') {
         lastClientSeen = Date.now();
         let agents = [], orcaError = null;
-        try { agents = await terminals(); } catch (err) { orcaError = err.message; }
+        try {
+          const now = Date.now();
+          agents = (await terminals()).map(({ preview, ...a }) => ({ ...a, status: agentStatus(preview, a.lastOutputAt, now) }));
+        } catch (err) { orcaError = err.message; }
         return send(res, 200, { agents, requests: [...requests.values()].map(r => r.info), links: config.links, main: config.main, orcaError });
       }
       if (req.method !== 'POST') throw failure(404, 'Không có trang này.');
@@ -187,9 +196,10 @@ function createDeck({ config, orca = runOrca, saveConfig = () => {}, requestTime
       }
       if (route === '/api/details') {
         const agent = (await terminals()).find(t => t.handle === body.handle && t.incarnationId === body.incarnationId);
-        if (!agent) throw failure(409, 'Phiên agent đã thay đổi. Hãy chọn lại.');
+        if (!agent) throw failure(409, 'Phiên agent đã thay đổi. Hãy chọn lại.', 'stale');
         const output = await orca(['terminal', 'read', '--terminal', agent.handle, '--screen']);
-        return send(res, 200, { agent, screen: output.terminal?.tail || [] });
+        const { preview, ...shown } = agent;
+        return send(res, 200, { agent: shown, screen: output.terminal?.tail || [] });
       }
       if (route === '/api/action') {
         if (!['focus', 'continue', 'interrupt', 'pin', 'pr', 'preview'].includes(body.action)) throw failure(400, 'Nút không hợp lệ.');
@@ -197,11 +207,11 @@ function createDeck({ config, orca = runOrca, saveConfig = () => {}, requestTime
         const deadline = setTimeout(() => controller.abort(), 13000);
         res.once('close', () => { clearTimeout(deadline); controller.abort(); });
         const checkConnection = () => {
-          if (res.destroyed || controller.signal.aborted) throw failure(409, 'Thao tác đã hết thời gian hoặc mất kết nối.');
+          if (res.destroyed || controller.signal.aborted) throw failure(409, 'Thao tác đã hết thời gian hoặc mất kết nối.', 'timeout');
         };
         const options = { signal: controller.signal };
         const agent = (await terminals(true, controller.signal)).find(t => t.handle === body.handle && t.incarnationId === body.incarnationId);
-        if (!agent) throw failure(409, 'Phiên agent đã thay đổi. Hãy chọn lại.');
+        if (!agent) throw failure(409, 'Phiên agent đã thay đổi. Hãy chọn lại.', 'stale');
         checkConnection();
         if (body.action === 'pin') {
           if (!agent.agent.startsWith('claude')) throw failure(400, 'Claude chính phải là một phiên Claude.');
@@ -216,14 +226,14 @@ function createDeck({ config, orca = runOrca, saveConfig = () => {}, requestTime
         } else if (body.action === 'interrupt') {
           await orca(['terminal', 'send', '--terminal', agent.handle, '--interrupt'], options);
         } else {
-          if ([...requests.values()].some(r => r.info.workspace === agent.workspace)) throw failure(409, 'Project này đang có yêu cầu duyệt. Hãy xử lý yêu cầu trước.');
+          if ([...requests.values()].some(r => r.info.workspace === agent.workspace)) throw failure(409, 'Project này đang có yêu cầu duyệt. Hãy xử lý yêu cầu trước.', 'blocked');
           const idle = await orca(['terminal', 'wait', '--terminal', agent.handle, '--for', 'tui-idle', '--timeout-ms', '500'], options);
           if (!idle.wait?.satisfied) throw failure(409, 'Agent đang chạy; hãy chờ trước khi Continue.');
           checkConnection();
           const output = await orca(['terminal', 'read', '--terminal', agent.handle, '--screen'], options);
-          if (output.terminal?.source !== 'screen') throw failure(409, 'Không đọc được màn hình hiện tại. Hãy thao tác trên Mac.');
+          if (output.terminal?.source !== 'screen') throw failure(409, 'Không đọc được màn hình hiện tại. Hãy thao tác trên Mac.', 'no_screen');
           // shortcut: network/Codex approval dialogs remain on Mac until structured approval support is added.
-          if (/do you want to|yes, proceed|allow once|permission required|approve this/i.test((output.terminal.tail || []).join('\n'))) throw failure(409, 'Có hộp duyệt trong terminal. Hãy xử lý trên Mac.');
+          if (APPROVAL.test((output.terminal.tail || []).join('\n'))) throw failure(409, 'Có hộp duyệt trong terminal. Hãy xử lý trên Mac.', 'blocked');
           checkConnection();
           await orca(['terminal', 'send', '--terminal', agent.handle, '--text', 'continue', '--enter'], options);
         }
@@ -232,7 +242,7 @@ function createDeck({ config, orca = runOrca, saveConfig = () => {}, requestTime
       throw failure(404, 'Không có thao tác này.');
     } catch (err) {
       const error = err.status ? err.message : 'Có lỗi khi xử lý. Vui lòng thử lại.';
-      send(res, err.status || 500, { error: req.headers['x-deck-lang'] === 'en' ? EN[error] || error : error });
+      send(res, err.status || 500, { error: req.headers['x-deck-lang'] === 'en' ? EN[error] || error : error, code: err.status ? err.code : undefined });
     }
   });
   server.requestTimeout = 10000;
@@ -265,4 +275,4 @@ if (require.main === module) {
   process.on('SIGINT', stop);
   process.on('SIGTERM', stop);
 }
-module.exports = { createDeck, EN };
+module.exports = { createDeck, EN, agentStatus };
