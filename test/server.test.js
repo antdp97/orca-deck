@@ -422,3 +422,21 @@ test('send is cancelled if the browser disconnects before the send step', async 
   await new Promise(r => setTimeout(r, 15));
   assert.equal(sent, false);
 });
+
+test('snippets default, save for every device and persist', async t => {
+  let saves = 0;
+  const f = await fixture(t, { saveConfig: () => { saves++; } });
+  assert.deepEqual((await (await f.call('/api/state')).json()).snippets, ['yes', 'continue', 'run the tests']);
+  assert.equal((await f.call('/api/snippets', { list: ['ship it', 'Sửa lỗi'] })).status, 200);
+  assert.deepEqual((await (await f.call('/api/state')).json()).snippets, ['ship it', 'Sửa lỗi']);
+  assert.deepEqual(f.config.snippets, ['ship it', 'Sửa lỗi']);
+  assert.equal(saves, 1);
+});
+
+test('snippets reject invalid lists and keep the old one', async t => {
+  const f = await fixture(t);
+  const bad = [undefined, 'yes', Array(21).fill('x'), [''], ['x'.repeat(201)], ['a\nb'], [5]];
+  for (const list of bad) assert.equal((await f.call('/api/snippets', { list })).status, 400, JSON.stringify(list));
+  assert.equal(f.config.snippets, undefined);
+  assert.equal((await f.call('/api/snippets', { list: [] })).status, 200);
+});

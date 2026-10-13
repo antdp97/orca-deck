@@ -40,6 +40,7 @@ const EN = {
   'Có hộp duyệt trong terminal. Hãy xử lý trên Mac.': 'There is an approval prompt in the terminal. Handle it on the Mac.',
   'Không có thao tác này.': 'Unknown action.',
   'Gửi chữ hoặc một phím.': 'Send text or one key.',
+  'Danh sách mẫu không hợp lệ.': 'Invalid snippet list.',
   'Nội dung không hợp lệ.': 'Invalid text.',
   'Phím không hợp lệ.': 'Invalid key.',
   'Có thể đã gửi. Xem màn hình trước khi gửi lại.': 'It may have been sent. Check the screen before sending again.',
@@ -48,6 +49,7 @@ const EN = {
 
 // Approval dialogs from Claude Code and Codex, plus any visible broader-than-once option.
 const APPROVAL = /do you want to|would you like to|yes, proceed|allow once|permission required|approve this|don't ask again|for this session|always allow/i;
+const DEFAULT_SNIPPETS = ['yes', 'continue', 'run the tests'];
 const CONTROL = /[\u0000-\u001f\u007f]/;
 // Terminal bytes for the deck's key row. Ctrl-C is handled separately with --interrupt.
 const SEND_KEYS = { enter: '', esc: '\x1b', tab: '\t', up: '\x1b[A', down: '\x1b[B', right: '\x1b[C', left: '\x1b[D', y: 'y', n: 'n' };
@@ -192,7 +194,7 @@ function createDeck({ config, orca = runOrca, saveConfig = () => {}, requestTime
           const now = Date.now();
           agents = (await terminals()).map(({ preview, ...a }) => ({ ...a, status: agentStatus(preview, a.lastOutputAt, now) }));
         } catch (err) { orcaError = err.message; }
-        return send(res, 200, { agents, requests: [...requests.values()].map(r => r.info), links: config.links, main: config.main, orcaError });
+        return send(res, 200, { agents, requests: [...requests.values()].map(r => r.info), links: config.links, main: config.main, snippets: config.snippets || DEFAULT_SNIPPETS, orcaError });
       }
       if (req.method !== 'POST') throw failure(404, 'Không có trang này.');
       const body = await readJson(req);
@@ -210,6 +212,13 @@ function createDeck({ config, orca = runOrca, saveConfig = () => {}, requestTime
         config.links[body.workspace] = { pr: urlValue(body.pr), preview: urlValue(body.preview) };
         saveConfig();
         return send(res, 200, { ok: true });
+      }
+      if (route === '/api/snippets') {
+        const list = body.list;
+        if (!Array.isArray(list) || list.length > 20 || !list.every(s => typeof s === 'string' && s.length >= 1 && s.length <= 200 && !CONTROL.test(s))) throw failure(400, 'Danh sách mẫu không hợp lệ.');
+        config.snippets = list;
+        saveConfig();
+        return send(res, 200, { ok: true, snippets: list });
       }
       if (route === '/api/details') {
         const agent = (await terminals()).find(t => t.handle === body.handle && t.incarnationId === body.incarnationId);
