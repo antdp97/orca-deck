@@ -13,7 +13,7 @@
       offline: 'Không kết nối được Mac. Kiểm tra Wi‑Fi và cửa sổ Orca Deck.', agentChanged: 'Agent đã đổi phiên. Chọn lại.', session: 'phiên',
       working: 'Đang thực hiện…', sentContinue: 'Đã gửi Continue.', pinned: 'Đã ghim Claude chính.', doneMsg: 'Xong.',
       approved: 'Đã duyệt một lần.', rejected: 'Đã từ chối.', noAgents: 'Chưa có Claude/Codex trong Orca.', pinAs: 'Ghim làm Claude chính',
-      approveOnce: 'Duyệt một lần', rejectOne: 'Từ chối', paired: 'Đã kết nối. Ghim Claude chính.', mainChanged: 'Claude chính đã đổi phiên. Ghim lại.', saved: 'Đã lưu.'
+      tabAgents: 'Tất cả', approveOnce: 'Duyệt một lần', rejectOne: 'Từ chối', paired: 'Đã kết nối. Ghim Claude chính.', mainChanged: 'Claude chính đã đổi phiên. Ghim lại.', saved: 'Đã lưu.'
     },
     en: {
       pinLabel: 'Pairing code', connect: 'Connect', chooseAgent: 'Choose agent', links: 'Set links',
@@ -24,7 +24,7 @@
       offline: "Can't reach the Mac. Check Wi‑Fi and the Orca Deck window.", agentChanged: 'The agent session changed. Choose again.', session: 'session',
       working: 'Working…', sentContinue: 'Sent Continue.', pinned: 'Main Claude pinned.', doneMsg: 'Done.',
       approved: 'Approved once.', rejected: 'Rejected.', noAgents: 'No Claude/Codex terminals in Orca.', pinAs: 'Pin as main Claude',
-      approveOnce: 'Approve once', rejectOne: 'Reject', paired: 'Connected. Pin your main Claude.', mainChanged: 'Main Claude changed session. Pin it again.', saved: 'Saved.'
+      tabAgents: 'Agents', approveOnce: 'Approve once', rejectOne: 'Reject', paired: 'Connected. Pin your main Claude.', mainChanged: 'Main Claude changed session. Pin it again.', saved: 'Saved.'
     }
   };
   var lang = '';
@@ -57,11 +57,28 @@
       key.classList.toggle('off', !!layout.hidden[id]); key.classList.toggle('picked', editing && id === picked);
     });
     box.classList.toggle('editing', editing);
-    $('bar').hidden = editing; $('editBar').hidden = !editing;
+    $('bar').hidden = editing; $('editBar').hidden = !editing; $('tabs').hidden = editing;
     var at = layout.order.indexOf(picked);
     $('moveLeft').disabled = !picked || at === 0; $('moveRight').disabled = !picked || at === KEYS.length - 1; $('toggleKey').disabled = !picked;
     try { localStorage.setItem('orcaDeckLayout', JSON.stringify(layout)); } catch (e) {}
     buttonStates();
+  }
+  var VIEWS = ['agents', 'agent', 'deck'], view = '';
+  try { view = localStorage.getItem('orcaDeckView') || ''; } catch (e) {}
+  if (VIEWS.indexOf(view) < 0) view = window.innerWidth < 700 ? 'agents' : 'deck';
+  function showView(name) {
+    view = name;
+    if (editing) { editing = false; picked = ''; applyLayout(); }
+    $('agentsView').hidden = name !== 'agents'; $('agentView').hidden = name !== 'agent'; $('keys').hidden = name !== 'deck';
+    $('editButton').hidden = name !== 'deck';
+    $('cardActions').hidden = name === 'deck';
+    var tabs = document.querySelectorAll('.tab');
+    for (var i = 0; i < tabs.length; i++) {
+      var on = tabs[i].getAttribute('data-view') === name;
+      tabs[i].classList.toggle('active', on); tabs[i].setAttribute('aria-selected', on ? 'true' : 'false');
+    }
+    try { localStorage.setItem('orcaDeckView', name); } catch (e) {}
+    notify();
   }
   function move(step) { var at = layout.order.indexOf(picked); layout.order.splice(at, 1); layout.order.splice(at + step, 0, picked); applyLayout(); }
   function fail(text, status, code) { var e = new Error(text); e.status = status; e.code = code; return e; }
@@ -169,7 +186,8 @@
     getSelected: agent,
     select: setSelected,
     pickRequest: function (id) { selectedRequest = id; render(); },
-    onState: function (fn) { listeners.push(fn); }
+    onState: function (fn) { listeners.push(fn); },
+    show: showView, view: function () { return view; }
   };
   function chooseAgents() {
     if (!state) return;
@@ -248,6 +266,8 @@
   for (var i = 0; i < closes.length; i++) closes[i].onclick = function () { MODALS.forEach(function (id) { $(id).hidden = true; }); };
   MODALS.forEach(function (id) { $(id).onclick = function (event) { if (event.target === this) this.hidden = true; }; });
   $('unpair').onclick = function () { token = ''; state = null; selected = null; try { localStorage.removeItem('orcaDeckToken'); } catch (e) {} showPair(); };
+  var tabButtons = document.querySelectorAll('.tab');
+  for (i = 0; i < tabButtons.length; i++) tabButtons[i].onclick = function () { showView(this.getAttribute('data-view')); };
   document.addEventListener('visibilitychange', function () { if (!document.hidden) poll(); });
   var langButtons = document.querySelectorAll('.lang-button');
   for (i = 0; i < langButtons.length; i++) langButtons[i].onclick = function () {
@@ -255,5 +275,5 @@
     try { localStorage.setItem('orcaDeckLang', lang); } catch (e) {}
     applyLang(); if (state) render(); connected(!!state);
   };
-  applyLang(); applyLayout(); showPair(); poll(); setInterval(poll, 2000);
+  applyLang(); applyLayout(); showPair(); showView(view); poll(); setInterval(poll, 2000);
 }());
