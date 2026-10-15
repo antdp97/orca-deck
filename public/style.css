@@ -120,10 +120,30 @@ textarea{font:inherit;font-size:16px;border:1px solid #45504a;background:#121717
 .agent-row .icon-button{height:auto;min-height:60px;width:60px}
 .pinned{background:#b5e895;border-color:#b5e895;color:#182318}
 .current{border-color:#b6e989}
-.screen{max-height:none;flex:1;min-height:0;margin:0;padding:12px;background:#0b0e0e;border:1px solid #303839;border-radius:10px;font-size:12px;color:#d6dcd8}
+.screen{max-height:none;flex:1;min-height:0;margin:0;padding:12px;background:#0b0e0e;border:1px solid #303839;border-radius:10px;font-size:12px;color:#d6dcd8;white-space:pre;word-break:normal;line-height:1.2}
+.screen.wrap{white-space:pre-wrap;word-break:break-word;line-height:1.45}
+/* Screen marks: your messages stand out, tool output steps back */
+.k-you{color:#eef8e4;background:#2c4126;font-weight:600}
+.k-ai{color:#f3f3ee}
+.k-tool{color:#7f8d83}
+.k-input{color:#b6e989}
+.k-rule{color:#3b4546}
+.screen-bar{display:flex;flex-shrink:0;margin-top:8px}
+.screen-bar button{flex:1;display:flex;align-items:center;justify-content:center;min-height:44px;padding:6px 12px;font-size:15px}
+.screen-bar button+button{margin-left:8px}
+.screen-bar .icon{width:20px;height:20px;margin-right:8px}
+.screen-bar [aria-pressed=true]{border-color:#b6e989;color:#b6e989}
 .empty{color:#9aac9e;text-align:center;padding:24px 0}
 .sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)}
 [hidden]{display:none!important}
 /* iPad portrait and phones: 2 columns, taller keys */
 @media (orientation:portrait){.keys{grid-template-columns:repeat(2,1fr)}}
 @media (max-width:500px){main{padding:10px}.key .icon{width:36px;height:36px}.key strong{font-size:16px}.icon-button{width:48px;height:48px;margin-left:8px}}
+/* Mac pairing page */
+.pair-page main{height:auto;min-height:100%;align-items:center;text-align:center}
+.pair-help{max-width:520px;color:#abbcb0;font-size:15px;line-height:1.5}
+.pair-help strong{color:#f3f3ee;font-size:22px;letter-spacing:4px}
+#codes{display:flex;flex-wrap:wrap;justify-content:center}
+.qr-card{margin:12px}
+.qr-card img{display:block;width:264px;height:264px;padding:16px;background:#fff;border-radius:12px;image-rendering:-webkit-optimize-contrast;image-rendering:pixelated}
+.qr-card figcaption{margin-top:8px;font-family:Menlo,monospace;font-size:14px;color:#c5d2c7}

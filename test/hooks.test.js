@@ -64,3 +64,24 @@ test('hook emits only the explicit decision, ignores any injected permission rul
   assert.equal(received.session_id, 'session_a');
   assert.deepEqual(JSON.parse(output), { hookSpecificOutput: { hookEventName: 'PermissionRequest', decision: { behavior: 'allow' } } });
 });
+
+test('autostart installer writes a LaunchAgent for this folder and removes it', t => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'orca-deck-agent-'));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  const run = (...extra) => spawnSync('/usr/bin/python3', [path.join(ROOT, 'install-autostart.py'), '--agents-dir', dir, '--node', process.execPath, '--no-launchctl', ...extra], { encoding: 'utf8' });
+  const plist = path.join(dir, 'com.orcadeck.server.plist');
+  assert.equal(run().status, 0);
+  const agent = JSON.parse(spawnSync('/usr/bin/plutil', ['-convert', 'json', '-o', '-', plist], { encoding: 'utf8' }).stdout);
+  assert.equal(agent.Label, 'com.orcadeck.server');
+  assert.deepEqual(agent.ProgramArguments, [process.execPath, path.join(ROOT, 'server.js')]);
+  assert.equal(agent.WorkingDirectory, ROOT);
+  assert.equal(agent.RunAtLoad, true);
+  assert.equal(agent.KeepAlive, true);
+  assert.equal(agent.StandardOutPath, path.join(ROOT, '.local', 'deck.log'));
+  assert.ok(agent.EnvironmentVariables.PATH.split(':').includes(path.dirname(process.execPath)));
+  assert.equal(run().status, 0, 'installing twice is fine');
+  assert.equal(run('--uninstall').status, 0);
+  assert.equal(fs.existsSync(plist), false);
+  assert.equal(run('--uninstall').status, 0, 'uninstalling twice is fine');
+  assert.notEqual(run('--node', path.join(dir, 'missing-node')).status, 0);
+});

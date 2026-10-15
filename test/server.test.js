@@ -451,6 +451,16 @@ test('serves the new scripts without pairing', async t => {
   }
 });
 
+test('serves the app icons as PNG without pairing', async t => {
+  const f = await fixture(t);
+  for (const file of ['/icon-180.png', '/icon-167.png', '/icon-152.png', '/favicon.png']) {
+    const res = await f.call(file, undefined, '');
+    assert.equal(res.status, 200, file);
+    assert.equal(res.headers.get('content-type'), 'image/png');
+    assert.deepEqual([...new Uint8Array(await res.arrayBuffer()).slice(0, 4)], [0x89, 0x50, 0x4e, 0x47], file);
+  }
+});
+
 test('details refuses a screen read after the session on that handle was replaced', async t => {
   let incarnation = 'inc_live';
   const f = await fixture(t, { orca: async args => {
@@ -474,4 +484,60 @@ test('details refuses when Orca cannot render the current screen', async t => {
   const res = await f.call('/api/details', { handle: 'term_live', incarnationId: 'inc_live' });
   assert.equal(res.status, 409);
   assert.equal((await res.json()).code, 'no_screen');
+});
+
+test('pair-info on the Mac gives the code and one-time ticket links with QR images', async t => {
+  const f = await fixture(t, { qrPng: async text => 'png:' + text });
+  const res = await f.call('/api/pair-info', undefined, '');
+  assert.equal(res.status, 200);
+  const info = await res.json();
+  assert.equal(info.pin, '12345678');
+  assert.ok(info.links.length >= 1);
+  for (const link of info.links) {
+    assert.match(link.url, /^http:\/\/[\d.]+:\d+\/#t=[0-9a-f]{32}$/);
+    assert.equal(link.qr, 'png:' + link.url);
+  }
+});
+
+test('a pairing ticket works once', async t => {
+  const f = await fixture(t, { qrPng: async () => null });
+  const ticket = (await (await f.call('/api/pair-info', undefined, '')).json()).links[0].url.split('#t=')[1];
+  const first = await f.call('/api/pair', { ticket }, '');
+  assert.equal(first.status, 200);
+  assert.equal((await first.json()).token, 'browser-secret');
+  assert.equal((await f.call('/api/pair', { ticket }, '')).status, 401);
+  assert.equal((await f.call('/api/pair', { pin: '12345678' }, '')).status, 200);
+});
+
+test('an expired pairing ticket is refused', async t => {
+  const f = await fixture(t, { qrPng: async () => null, ticketTtl: 20 });
+  const ticket = (await (await f.call('/api/pair-info', undefined, '')).json()).links[0].url.split('#t=')[1];
+  await new Promise(r => setTimeout(r, 40));
+  assert.equal((await f.call('/api/pair', { ticket }, '')).status, 401);
+});
+
+test('pair-info still answers when the QR image fails', async t => {
+  const f = await fixture(t, { qrPng: async () => { throw new Error('no CoreImage'); } });
+  const res = await f.call('/api/pair-info', undefined, '');
+  assert.equal(res.status, 200);
+  assert.equal((await res.json()).links[0].qr, null);
+});
+
+test('the pairing page is served on the Mac', async t => {
+  const f = await fixture(t);
+  const res = await f.call('/pair', undefined, '');
+  assert.equal(res.status, 200);
+  assert.match(res.headers.get('content-type'), /text\/html/);
+});
+
+test('the pairing page and pair-info refuse other devices', async t => {
+  const lan = require('node:os').networkInterfaces();
+  const ip = Object.values(lan).flat().find(a => a.family === 'IPv4' && !a.internal)?.address;
+  if (!ip) return t.skip('no LAN address');
+  const server = createDeck({ config: { pin: '12345678', token: 'x', hookToken: 'y', links: {} }, orca: async () => ({ terminals: [] }), qrPng: async () => null });
+  await new Promise(r => server.listen(0, '0.0.0.0', r));
+  t.after(() => { server.closeAllConnections(); server.close(); });
+  const base = 'http://' + ip + ':' + server.address().port;
+  assert.equal((await fetch(base + '/api/pair-info')).status, 403);
+  assert.equal((await fetch(base + '/pair')).status, 403);
 });

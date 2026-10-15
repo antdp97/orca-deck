@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><meta name="apple-mobile-web-app-title" content="Orca Deck">
-<title>Orca Deck</title><link rel="stylesheet" href="/style.css">
+<title>Orca Deck</title><link rel="apple-touch-icon" href="/icon-180.png"><link rel="apple-touch-icon" sizes="152x152" href="/icon-152.png"><link rel="apple-touch-icon" sizes="167x167" href="/icon-167.png"><link rel="apple-touch-icon" sizes="180x180" href="/icon-180.png"><link rel="icon" type="image/png" href="/favicon.png"><link rel="stylesheet" href="/style.css">
 </head>
 <body>
 <svg class="sprite" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
@@ -30,6 +30,8 @@
   <symbol id="i-bell-off" viewBox="0 0 24 24"><path d="M8.7 3A6 6 0 0 1 18 8a21.3 21.3 0 0 0 .6 5"/><path d="M17 17H3s3-2 3-9a4.67 4.67 0 0 1 .3-1.7"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/><path d="m2 2 20 20"/></symbol>
   <symbol id="i-alert" viewBox="0 0 24 24"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4M12 17h.01"/></symbol>
   <symbol id="i-pause" viewBox="0 0 24 24"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></symbol>
+  <symbol id="i-wrap" viewBox="0 0 24 24"><path d="M3 6h18M3 12h15a3 3 0 1 1 0 6h-4M3 18h7M16 16l-2 2 2 2"/></symbol>
+  <symbol id="i-keyboard" viewBox="0 0 24 24"><rect width="20" height="14" x="2" y="5" rx="2"/><path d="M6 9h.01M10 9h.01M14 9h.01M18 9h.01M6 13h.01M18 13h.01M8 17h8"/></symbol>
   <symbol id="i-pencil" viewBox="0 0 24 24"><path d="M21.17 6.81a1 1 0 0 0-3.99-3.99L3.84 16.17a2 2 0 0 0-.5.83l-1.32 4.35a.5.5 0 0 0 .62.62l4.35-1.32a2 2 0 0 0 .83-.5z"/></symbol>
   <symbol id="i-pin" viewBox="0 0 24 24"><path d="M12 17v5M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/></symbol>
 </svg>
@@ -75,6 +77,10 @@
           <button id="agentPreview" class="icon-button" data-ta="openPreview" aria-label="Mở preview"><svg class="icon"><use xlink:href="#i-monitor"/></svg></button>
         </div>
         <pre id="agentScreen" class="screen"></pre>
+        <div class="screen-bar">
+          <button id="screenWrap" type="button" aria-pressed="false"><svg class="icon"><use xlink:href="#i-wrap"/></svg><span id="screenWrapLabel">Fit</span></button>
+          <button id="screenBare" type="button" aria-controls="sendKeys snippets replyForm" aria-expanded="true"><svg class="icon"><use xlink:href="#i-keyboard"/></svg><span id="screenBareLabel">Hide keys</span></button>
+        </div>
         <p id="agentNote" class="note" hidden></p>
         <div id="sendKeys" class="send-keys">
           <button type="button" data-key="esc" aria-label="Escape">Esc</button>

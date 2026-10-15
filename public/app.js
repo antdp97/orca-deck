@@ -17,7 +17,7 @@
       pickAgent: 'Chọn một agent trong Tất cả.', focusMac: 'Mở trên Mac', promptNote: 'Có hộp duyệt trên màn hình. Dùng thẻ duyệt hoặc Mac.',
       sessionEnded: 'Phiên này đã kết thúc.', reply: 'Trả lời', send: 'Gửi', sent: 'Đã gửi.', maybeSent: 'Có thể đã gửi. Xem màn hình trước khi gửi lại.',
       editSnippets: 'Sửa mẫu trả lời', snippetsHelp: 'Mỗi dòng một mẫu (tối đa 20)',
-      keyUp: 'Lên', keyDown: 'Xuống', keyLeft: 'Trái', keyRight: 'Phải', approveOnce: 'Duyệt một lần', rejectOne: 'Từ chối', paired: 'Đã kết nối. Ghim Claude chính.', mainChanged: 'Claude chính đã đổi phiên. Ghim lại.', saved: 'Đã lưu.'
+      keyUp: 'Lên', keyDown: 'Xuống', keyLeft: 'Trái', keyRight: 'Phải', fitOn: 'Vừa màn hình', wrapOn: 'Xuống dòng', hideKeys: 'Ẩn phím', showKeys: 'Hiện phím', approveOnce: 'Duyệt một lần', rejectOne: 'Từ chối', paired: 'Đã kết nối. Ghim Claude chính.', mainChanged: 'Claude chính đã đổi phiên. Ghim lại.', saved: 'Đã lưu.'
     },
     en: {
       pinLabel: 'Pairing code', connect: 'Connect', chooseAgent: 'Choose agent', links: 'Set links',
@@ -32,7 +32,7 @@
       pickAgent: 'Pick an agent in Agents.', focusMac: 'Show on Mac', promptNote: 'Approval on screen. Use the card or the Mac.',
       sessionEnded: 'This session has ended.', reply: 'Reply', send: 'Send', sent: 'Sent.', maybeSent: 'Might have been sent. Check the screen before resending.',
       editSnippets: 'Edit snippets', snippetsHelp: 'One snippet per line (up to 20)',
-      keyUp: 'Up', keyDown: 'Down', keyLeft: 'Left', keyRight: 'Right', approveOnce: 'Approve once', rejectOne: 'Reject', paired: 'Connected. Pin your main Claude.', mainChanged: 'Main Claude changed session. Pin it again.', saved: 'Saved.'
+      keyUp: 'Up', keyDown: 'Down', keyLeft: 'Left', keyRight: 'Right', fitOn: 'Fit', wrapOn: 'Wrap', hideKeys: 'Hide keys', showKeys: 'Show keys', approveOnce: 'Approve once', rejectOne: 'Reject', paired: 'Connected. Pin your main Claude.', mainChanged: 'Main Claude changed session. Pin it again.', saved: 'Saved.'
     }
   };
   var lang = '';
@@ -238,12 +238,19 @@
   }
   $('pairForm').onsubmit = function (event) {
     event.preventDefault();
-    api('pair', { pin: $('pin').value.trim() }, function (err, result) {
-      if (err) return message(err.message);
-      token = result.token; try { localStorage.setItem('orcaDeckToken', token); } catch (e) {}
-      $('pin').value = ''; showPair(); message(t('paired')); poll();
-    });
+    api('pair', { pin: $('pin').value.trim() }, paired);
   };
+  function paired(err, result) {
+    if (err) return message(err.message);
+    token = result.token; try { localStorage.setItem('orcaDeckToken', token); } catch (e) {}
+    $('pin').value = ''; showPair(); message(t('paired')); poll();
+  }
+  // Opened from the Mac's QR code: pair with the one-time ticket, then drop it from the address bar and history.
+  var ticket = /^#t=([0-9a-f]{32})$/.exec(location.hash);
+  if (ticket) {
+    try { history.replaceState(null, '', location.pathname + location.search); } catch (e) {}
+    if (!token) api('pair', { ticket: ticket[1] }, paired);
+  }
   $('requestSelect').onchange = function () { selectedRequest = this.value; render(); };
   $('cardApprove').onclick = function () { decide('allow'); };
   $('cardReject').onclick = function () { decide('deny'); };

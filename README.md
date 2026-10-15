@@ -44,8 +44,10 @@ flowchart LR
 ## Setup
 
 1. Double-click `Start.command` (or run `npm start`) and keep that window open. Only run one copy.
-2. On the iPad, open the **"Trên iPad"** ("on iPad") address printed in the window (the server console is in Vietnamese), e.g. `http://192.168.1.20:8766`. It can change when the Mac changes networks.
-3. Enter the 8-digit pairing code from the same window. The code is only shown there; the API never returns it.
+2. Pair the iPad. Double-click `Ghép-thiết-bị.command` ("pair device"), or open `http://127.0.0.1:8766/pair` on the Mac, and scan the QR code with the iPad camera. The QR holds a one-time link that expires in 5 minutes, so it never contains the pairing code itself. The page only opens on the Mac.
+
+   Or type it by hand: open the **"Trên iPad"** ("on iPad") address printed in the window (the server console is in Vietnamese), e.g. `http://192.168.1.20:8766`, and enter the 8-digit pairing code shown in the same window and on the pairing page. The address can change when the Mac changes networks.
+3. On iOS, a Home Screen app keeps its own storage, so after Add to Home Screen it asks to pair again: open the pairing page and use the code.
 4. Tap the agent bar at the top (or the **Agent** key), then tap the pin icon next to the Claude session you use as your orchestrator. The **Main Claude** key always brings that session to the front on the Mac.
 5. Tap the link icon to save a PR URL and a preview URL for the current project. The **PR** / **Preview** keys open them in the Mac's default browser (including `http://localhost:3000`).
 6. Install the approval hook (it keeps your existing hooks and settings and backs up `settings.json` first):
@@ -56,7 +58,9 @@ flowchart LR
 
    New Claude Code sessions pick it up automatically. In an older session, check `/hooks`. To uninstall, double-click `Gỡ-hook.command` (or run `install-hook.py --uninstall`); only the Orca Deck hook is removed.
 
-Tip: In Safari, use Share → Add to Home Screen for a full-screen app, and turn off Auto-Lock to keep the deck visible. Landscape shows 4×2 keys and portrait shows 2×4.
+**Run at login (optional):** double-click `Tự-khởi-động.command` ("auto-start"), or run `/usr/bin/python3 install-autostart.py`. It installs a LaunchAgent that starts the deck when you log in and restarts it if it stops; output goes to `.local/deck.log`. Close any `Start.command` window first, since only one copy can run. To remove it, double-click `Gỡ-tự-khởi-động.command` or run `install-autostart.py --uninstall`.
+
+Tip: In Safari, use Share → Add to Home Screen for a full-screen app with the Orca Deck icon, and turn off Auto-Lock to keep the deck visible. Landscape shows 4×2 keys and portrait shows 2×4.
 
 ## Using the deck
 
@@ -78,7 +82,7 @@ Tip: In Safari, use Share → Add to Home Screen for a full-screen app, and turn
 
 **Agents tab:** every Claude/Codex terminal with its status (needs approval, working, idle) and how long since its last output, with pending Claude requests listed first. Tap an agent to open it.
 
-**Agent tab:** the agent's live screen (refreshed every 2 seconds), a key row (Esc, arrows, Tab, y, n, Enter, Ctrl‑C), saved replies and a reply box. Tap a saved reply to put it in the box; the pencil edits the list, which is shared by all your devices. The header buttons show the agent on the Mac, pin it as Main Claude, and open its PR or preview. Typing is blocked while the screen shows an approval prompt or a Claude request is pending for that project; Ctrl‑C always works. If a send times out, the deck says it might have been sent and waits for a fresh screen before letting you send again.
+**Agent tab:** the agent's live screen (refreshed every 2 seconds). Your messages are highlighted, AI replies are bright, and tool output is dimmed (from the `❯`/`⏺`/`⎿` marks Claude Code draws, and `›`/`•` for Codex). **Fit** keeps each terminal row on one line and shrinks the text to the screen width so tables stay aligned (down to 9px, then it scrolls sideways); **Wrap** wraps long lines instead. **Hide keys** gives the screen the full height. Both choices are saved per device. Below the screen: a key row (Esc, arrows, Tab, y, n, Enter, Ctrl‑C), saved replies and a reply box. Tap a saved reply to put it in the box; the pencil edits the list, which is shared by all your devices. The header buttons show the agent on the Mac, pin it as Main Claude, and open its PR or preview. Typing is blocked while the screen shows an approval prompt or a Claude request is pending for that project; Ctrl‑C always works. If a send times out, the deck says it might have been sent and waits for a fresh screen before letting you send again.
 
 **Alerts** (while the deck is open): a chime, an amber flash and a count in the page title when an agent needs you, and a softer chime and green flash when a busy agent goes quiet (its output stopped, which doesn't always mean it finished). The bell mutes sound. iOS only plays sound after you've tapped the page once. Vibration works on Android only.
 
@@ -101,8 +105,8 @@ Tip: In Safari, use Share → Add to Home Screen for a full-screen app, and turn
 
 - Only Claude Code approvals go through the hook. Codex terminals support focus, Continue, Interrupt and the Agent tab, but Codex approvals stay on the Mac (the deck blocks typing while one is on screen).
 - Claude's sandbox network prompts and some special dialogs still need the Mac.
-- Closing the server window stops the deck; it doesn't start at login.
-- No alerts when the deck is closed or the device is locked.
+- Without the auto-start option, closing the server window stops the deck.
+- No alerts when the deck is closed or the device is locked. Web push needs HTTPS and iOS 16.4+, so it can't reach an iPad mini 3.
 
 ## Development
 

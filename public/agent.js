@@ -1,15 +1,69 @@
 (function () {
   'use strict';
+  var MENLO_WIDTH = 0.602, MIN_FONT = 9, MAX_FONT = 13; // Menlo glyph advance in em
+  // Pure: one kind per screen line from the markers Claude Code (❯ ⏺ ⎿, input box between ─── rules) and Codex (› •) draw.
+  // Indented and blank lines continue the block above them.
+  function kinds(lines) {
+    var out = [], current = 'plain', inBox = false;
+    lines.forEach(function (line, i) {
+      var kind;
+      if (/^─{3,}/.test(line)) { kind = 'rule'; inBox = !inBox && /^[❯>]/.test(lines[i + 1] || ''); current = 'plain'; }
+      else if (inBox) kind = 'input';
+      else if (/^[❯>›] /.test(line)) kind = current = 'you';
+      else if (/^(⏺|• )/.test(line)) kind = current = 'ai';
+      else if (/^\s+⎿/.test(line)) kind = current = 'tool';
+      else if (line === '' || /^\s/.test(line)) kind = current;
+      else kind = current = 'plain';
+      out.push(kind);
+    });
+    return out;
+  }
+  // Pure: font size (px, one decimal) that fits cols Menlo columns into width px.
+  function fitSize(width, cols) {
+    if (!cols) return MAX_FONT;
+    return Math.max(MIN_FONT, Math.min(MAX_FONT, Math.floor(width / (cols * MENLO_WIDTH) * 10) / 10));
+  }
+  if (typeof module !== 'undefined' && module.exports) { module.exports = { kinds: kinds, fitSize: fitSize }; return; }
   var D = window.Deck, $ = function (id) { return document.getElementById(id); };
   // shown: key of the agent on screen (kept when it ends or we go offline).
   // pending[key]: a send to that session is in flight. locks[key]: time its last send may have been delivered;
   // Send stays off for that session until a screen read started after that time comes back.
-  var shown = '', shownAgent = null, pending = {}, locks = {}, loading = '', snippetsDrawn = '';
+  var shown = '', shownAgent = null, pending = {}, locks = {}, loading = '', snippetsDrawn = '', cols = 0;
+  // Per device: wrap long lines instead of fitting the screen, and hide the keys/snippets/reply box.
+  var wrap = false, bare = false;
+  try { wrap = localStorage.getItem('orcaDeckWrap') === 'on'; bare = localStorage.getItem('orcaDeckBare') === 'on'; } catch (e) {}
   function keyOf(a) { return a ? a.handle + '/' + a.incarnationId : ''; }
   function showScreen(lines) {
     var el = $('agentScreen'), atBottom = el.scrollTop + el.clientHeight >= el.scrollHeight - 20;
-    el.textContent = lines.join('\n') || '—';
+    while (el.firstChild) el.removeChild(el.firstChild);
+    cols = 0;
+    if (!lines.length) { el.textContent = '—'; fit(); return; }
+    var marks = kinds(lines), start = 0;
+    for (var i = 0; i <= lines.length; i++) {
+      if (i < lines.length) cols = Math.max(cols, lines[i].length);
+      if (i < lines.length && marks[i] === marks[start]) continue;
+      if (start) el.appendChild(document.createTextNode('\n'));
+      var span = document.createElement('span');
+      span.className = 'k-' + marks[start];
+      span.textContent = lines.slice(start, i).join('\n');
+      el.appendChild(span);
+      start = i;
+    }
+    fit();
     if (atBottom) el.scrollTop = el.scrollHeight;
+  }
+  function fit() {
+    var el = $('agentScreen');
+    el.classList.toggle('wrap', wrap);
+    el.style.fontSize = wrap ? '' : fitSize(el.clientWidth - 24, cols) + 'px'; // 24: the screen's side padding
+  }
+  function applyModes() {
+    fit();
+    $('screenWrap').setAttribute('aria-pressed', wrap ? 'true' : 'false');
+    $('screenWrapLabel').textContent = D.t(wrap ? 'wrapOn' : 'fitOn');
+    $('screenBareLabel').textContent = D.t(bare ? 'showKeys' : 'hideKeys');
+    $('screenBare').setAttribute('aria-expanded', bare ? 'false' : 'true');
+    $('sendKeys').hidden = $('snippets').hidden = $('replyForm').hidden = bare;
   }
   function renderSnippets(state) {
     var list = (state && state.snippets) || [], sig = JSON.stringify([list, D.t('editSnippets')]), box = $('snippets');
@@ -90,6 +144,17 @@
     if (!text || $('replySend').disabled) return;
     send({ text: text, enter: true }, function () { if ($('replyText').value.trim() === text) $('replyText').value = ''; });
   };
+  $('screenWrap').onclick = function () {
+    wrap = !wrap;
+    try { localStorage.setItem('orcaDeckWrap', wrap ? 'on' : 'off'); } catch (e) {}
+    applyModes();
+  };
+  $('screenBare').onclick = function () {
+    bare = !bare;
+    try { localStorage.setItem('orcaDeckBare', bare ? 'on' : 'off'); } catch (e) {}
+    applyModes();
+  };
+  window.addEventListener('resize', fit);
   $('agentFocus').onclick = function () { D.action('focus', D.getSelected()); };
   $('agentPin').onclick = function () { D.action('pin', D.getSelected()); };
   $('agentPr').onclick = function () { D.openLink('pr'); };
@@ -102,8 +167,9 @@
       if (!err) { $('snippetModal').hidden = true; D.poll(); }
     });
   };
+  applyModes();
   D.onState(function (state, err) {
-    refresh();
+    refresh(); applyModes();
     if (!err && state && D.view() === 'agent') loadScreen();
   });
 }());

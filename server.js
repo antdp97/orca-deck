@@ -22,6 +22,7 @@ const EN = {
   'Chỉ thao tác từ trang Orca Deck.': 'Only the Orca Deck page can do this.',
   'Thử lại mã ghép nối sau một phút.': 'Too many attempts. Try the pairing code again in a minute.',
   'Mã ghép nối chưa đúng.': 'Wrong pairing code.',
+  'Chỉ mở trang ghép nối trên Mac.': 'Open the pairing page on the Mac only.',
   'Hook chưa được xác thực.': 'Hook not authenticated.',
   'Hook thiếu thông tin.': 'Hook payload incomplete.',
   'Cần ghép nối thiết bị.': 'Pair this device first.',
@@ -100,8 +101,21 @@ async function runOrca(args, { signal } = {}) {
     throw failure(503, 'Orca: ' + message.slice(0, 300));
   }
 }
-function createDeck({ config, orca = runOrca, saveConfig = () => {}, requestTimeout = 180000, openUrl = url => execute('/usr/bin/open', [url]) }) {
+// CoreImage's built-in QR generator through JXA: argv[0] is the text, prints a base64 PNG (1 px per module).
+const QR_SCRIPT = `ObjC.import('CoreImage'); ObjC.import('AppKit');
+function run(argv) {
+  var f = $.CIFilter.filterWithName('CIQRCodeGenerator');
+  f.setValueForKey($.NSString.alloc.initWithUTF8String(argv[0]).dataUsingEncoding($.NSUTF8StringEncoding), 'inputMessage');
+  f.setValueForKey($('M'), 'inputCorrectionLevel');
+  return $.NSBitmapImageRep.alloc.initWithCIImage(f.outputImage).representationUsingTypeProperties($.NSBitmapImageFileTypePNG, $()).base64EncodedStringWithOptions(0).js;
+}`;
+async function macQr(text) {
+  const { stdout } = await execute('/usr/bin/osascript', ['-l', 'JavaScript', '-e', QR_SCRIPT, text], { timeout: 5000 });
+  return 'data:image/png;base64,' + stdout.trim();
+}
+function createDeck({ config, orca = runOrca, saveConfig = () => {}, requestTimeout = 180000, openUrl = url => execute('/usr/bin/open', [url]), qrPng = macQr, ticketTtl = 300000 }) {
   const requests = new Map();
+  const tickets = new Map(); // one-time pairing tickets from the Mac's /pair page -> expiry time
   const attempts = new Map();
   let lastClientSeen = 0;
   let terminalCache = [], cacheAt = 0, cachePromise;
@@ -148,10 +162,25 @@ function createDeck({ config, orca = runOrca, saveConfig = () => {}, requestTime
       if (!['localhost', '127.0.0.1', '[::1]', ...localAddresses()].includes(hostname)) throw failure(403, 'Địa chỉ máy chủ không hợp lệ.');
       if (req.headers.origin && req.headers.origin !== 'http://' + host) throw failure(403, 'Chỉ thao tác từ trang Orca Deck.');
       const route = new URL(req.url, 'http://' + host).pathname;
-      if (req.method === 'GET' && ['/', '/app.js', '/style.css', '/alerts.js', '/agents.js', '/agent.js'].includes(route)) {
-        const filename = route === '/' ? 'index.html' : route.slice(1);
-        const type = filename.endsWith('.js') ? 'application/javascript' : filename.endsWith('.css') ? 'text/css' : 'text/html';
-        res.writeHead(200, { 'Content-Type': type + '; charset=utf-8', 'Cache-Control': 'no-store' });
+      if ((route === '/pair' || route === '/api/pair-info') && !isLoopback(req.socket.remoteAddress)) throw failure(403, 'Chỉ mở trang ghép nối trên Mac.');
+      if (route === '/api/pair-info' && req.method === 'GET') {
+        for (const [key, expiry] of tickets) if (expiry < Date.now()) tickets.delete(key);
+        if (tickets.size >= 20) tickets.delete(tickets.keys().next().value);
+        const ticket = crypto.randomBytes(16).toString('hex');
+        tickets.set(ticket, Date.now() + ticketTtl);
+        const port = req.socket.localPort;
+        const links = await Promise.all(localAddresses().map(async ip => {
+          const url = 'http://' + ip + ':' + port + '/#t=' + ticket;
+          let qr = null;
+          try { qr = await qrPng(url); } catch {}
+          return { url, qr };
+        }));
+        return send(res, 200, { pin: config.pin, links, expiresIn: ticketTtl });
+      }
+      if (req.method === 'GET' && ['/', '/pair', '/pair.js', '/app.js', '/style.css', '/alerts.js', '/agents.js', '/agent.js', '/icon-180.png', '/icon-167.png', '/icon-152.png', '/favicon.png'].includes(route)) {
+        const filename = route === '/' ? 'index.html' : route === '/pair' ? 'pair.html' : route.slice(1);
+        const type = filename.endsWith('.png') ? 'image/png' : (filename.endsWith('.js') ? 'application/javascript' : filename.endsWith('.css') ? 'text/css' : 'text/html') + '; charset=utf-8';
+        res.writeHead(200, { 'Content-Type': type, 'Cache-Control': 'no-store' });
         return res.end(fs.readFileSync(path.join(ROOT, 'public', filename)));
       }
       if (route === '/api/pair' && req.method === 'POST') {
@@ -162,7 +191,9 @@ function createDeck({ config, orca = runOrca, saveConfig = () => {}, requestTime
         entry.count++;
         attempts.set(ip, entry);
         const body = await readJson(req);
-        if (!equalSecret(body?.pin, config.pin)) throw failure(401, 'Mã ghép nối chưa đúng.');
+        const ticket = typeof body?.ticket === 'string' && tickets.get(body.ticket);
+        if (ticket) tickets.delete(body.ticket);
+        if (!(ticket && ticket > Date.now()) && !equalSecret(body?.pin, config.pin)) throw failure(401, 'Mã ghép nối chưa đúng.');
         attempts.delete(ip);
         return send(res, 200, { token: config.token });
       }
@@ -324,6 +355,7 @@ if (require.main === module) {
     console.log('Trên Mac: http://127.0.0.1:' + config.port);
     for (const ip of localAddresses()) console.log('Trên iPad: http://' + ip + ':' + config.port);
     console.log('Mã ghép nối: ' + config.pin);
+    console.log('Ghép bằng mã QR: http://127.0.0.1:' + config.port + '/pair');
   });
   const stop = () => { server.closeAllConnections(); server.close(() => process.exit(0)); };
   process.on('SIGINT', stop);
