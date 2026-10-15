@@ -20,7 +20,7 @@ def main():
     command = '/usr/bin/python3 ' + shlex.quote(str(root / 'hook.py'))
     settings_path = args.settings
     if settings_path.is_symlink():
-        raise SystemExit('settings.json là symlink; cần dùng --settings với file đích.')
+        raise SystemExit('settings.json is a symlink; pass --settings with the real file.')
     settings = json.loads(settings_path.read_text()) if settings_path.exists() else {}
     before = json.dumps(settings, sort_keys=True)
     hooks = settings.setdefault('hooks', {})
@@ -40,7 +40,7 @@ def main():
     elif not any(h.get('command') == command for entry in entries for h in entry.get('hooks', [])):
         entries.append({'matcher': '*', 'hooks': [{'type': 'command', 'command': command, 'timeout': 190}]})
     if json.dumps(settings, sort_keys=True) == before:
-        print('Cấu hình đã đúng; không thay đổi.')
+        print('Already set up; nothing changed.')
         return
     settings_path.parent.mkdir(parents=True, exist_ok=True)
     mode = stat.S_IMODE(settings_path.stat().st_mode) if settings_path.exists() else 0o600
@@ -48,7 +48,7 @@ def main():
         backup = settings_path.with_name(settings_path.name + '.orca-deck-backup-' + datetime.now().strftime('%Y%m%d-%H%M%S-%f'))
         shutil.copy2(settings_path, backup)
         os.chmod(backup, 0o600)
-        print('Đã sao lưu: ' + str(backup))
+        print('Backed up: ' + str(backup))
     fd, name = tempfile.mkstemp(prefix='.orca-deck-', dir=str(settings_path.parent))
     try:
         with os.fdopen(fd, 'w') as stream:
@@ -59,7 +59,7 @@ def main():
     finally:
         if os.path.exists(name):
             os.unlink(name)
-    print('Đã gỡ hook Orca Deck.' if args.uninstall else 'Đã thêm hook Orca Deck; giữ nguyên các hook có sẵn.')
+    print('Removed the Orca Deck hook.' if args.uninstall else 'Added the Orca Deck hook; your other hooks are unchanged.')
 
 
 if __name__ == '__main__':

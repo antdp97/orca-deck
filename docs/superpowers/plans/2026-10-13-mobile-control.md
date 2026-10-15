@@ -1,5 +1,7 @@
 # Mobile Control (Agents overview, Reply, Alerts) Implementation Plan
 
+> **Historical note:** this plan predates the switch to English-first code. Its snippets show server messages and HTML defaults in Vietnamese, as the code had them then. The code now uses English messages with a `VI` translation map in `server.js`; `TEXT.vi` in `public/app.js` is still the Vietnamese UI option.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Let any phone or tablet on the home Wi‑Fi see every Orca agent's status, read and reply to one agent, and get alerted while the deck is open.

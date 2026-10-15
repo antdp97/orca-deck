@@ -44,9 +44,9 @@ flowchart LR
 ## Setup
 
 1. Double-click `Start.command` (or run `npm start`) and keep that window open. Only run one copy.
-2. Pair the iPad. Double-click `Ghép-thiết-bị.command` ("pair device"), or open `http://127.0.0.1:8766/pair` on the Mac, and scan the QR code with the iPad camera. The QR holds a one-time link that expires in 5 minutes, so it never contains the pairing code itself. The page only opens on the Mac.
+2. Pair the iPad. Double-click `Pair-device.command`, or open `http://127.0.0.1:8766/pair` on the Mac, and scan the QR code with the iPad camera. The QR holds a one-time link that expires in 5 minutes, so it never contains the pairing code itself. The page only opens on the Mac.
 
-   Or type it by hand: open the **"Trên iPad"** ("on iPad") address printed in the window (the server console is in Vietnamese), e.g. `http://192.168.1.20:8766`, and enter the 8-digit pairing code shown in the same window and on the pairing page. The address can change when the Mac changes networks.
+   Or type it by hand: open the **"On iPad/phone"** address printed in the window, e.g. `http://192.168.1.20:8766`, and enter the 8-digit pairing code shown in the same window and on the pairing page. The address can change when the Mac changes networks.
 3. On iOS, a Home Screen app keeps its own storage, so after Add to Home Screen it asks to pair again: open the pairing page and use the code.
 4. Tap the agent bar at the top (or the **Agent** key), then tap the pin icon next to the Claude session you use as your orchestrator. The **Main Claude** key always brings that session to the front on the Mac.
 5. Tap the link icon to save a PR URL and a preview URL for the current project. The **PR** / **Preview** keys open them in the Mac's default browser (including `http://localhost:3000`).
@@ -56,9 +56,9 @@ flowchart LR
    /usr/bin/python3 install-hook.py
    ```
 
-   New Claude Code sessions pick it up automatically. In an older session, check `/hooks`. To uninstall, double-click `Gỡ-hook.command` (or run `install-hook.py --uninstall`); only the Orca Deck hook is removed.
+   New Claude Code sessions pick it up automatically. In an older session, check `/hooks`. To uninstall, double-click `Uninstall-hook.command` (or run `install-hook.py --uninstall`); only the Orca Deck hook is removed.
 
-**Run at login (optional):** double-click `Tự-khởi-động.command` ("auto-start"), or run `/usr/bin/python3 install-autostart.py`. It installs a LaunchAgent that starts the deck when you log in and restarts it if it stops; output goes to `.local/deck.log`. Close any `Start.command` window first, since only one copy can run. To remove it, double-click `Gỡ-tự-khởi-động.command` or run `install-autostart.py --uninstall`.
+**Run at login (optional):** double-click `Install-autostart.command`, or run `/usr/bin/python3 install-autostart.py`. It installs a LaunchAgent that starts the deck when you log in and restarts it if it stops; output goes to `.local/deck.log`. Close any `Start.command` window first, since only one copy can run. To remove it, double-click `Uninstall-autostart.command` or run `install-autostart.py --uninstall`.
 
 Tip: In Safari, use Share → Add to Home Screen for a full-screen app with the Orca Deck icon, and turn off Auto-Lock to keep the deck visible. Landscape shows 4×2 keys and portrait shows 2×4.
 
@@ -88,7 +88,7 @@ Tip: In Safari, use Share → Add to Home Screen for a full-screen app with the 
 
 **Edit layout** (grid icon): tap a key, then use ‹ › to move it, the eye to hide or show it, ↺ to reset, and **Done** to save. The layout is stored in the browser on that device. The unpair button is also here, so it's hard to hit by accident.
 
-**Language:** the UI is available in English and Vietnamese. It follows the device language on first open; switch with the globe button on the pairing screen or in edit layout. The choice is saved on that device, and server error messages follow it too. To add a language, add a block to `TEXT` in `public/app.js` and to `EN`-style messages in `server.js`.
+**Language:** the UI is available in English and Vietnamese. It follows the device language on first open; switch with the globe button on the pairing screen or in edit layout. The choice is saved on that device, and server error messages follow it too. English is the base language of the code, console and scripts. To add a language, add a block to `TEXT` in `public/app.js` and a map like `VI` in `server.js` (keyed by the English message), and pick it in the `X-Deck-Lang` check.
 
 ## Security
 

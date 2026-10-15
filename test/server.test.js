@@ -224,13 +224,14 @@ test('details reads the current screen of the exact session only', async t => {
   assert.equal((await f.call('/api/details', { handle: 'term_live', incarnationId: 'inc_live' }, 'wrong')).status, 401);
 });
 
-test('every server error has an English version, sent when the page asks for it', async t => {
+test('every server error is English with a Vietnamese version, sent when the page asks for it', async t => {
   const source = require('node:fs').readFileSync(require.resolve('../server'), 'utf8');
-  const { EN } = require('../server');
-  for (const [, text] of source.matchAll(/failure\(\d+, '([^']+)'[,)]/g)) assert.ok(EN[text], 'missing English for: ' + text);
+  const { VI } = require('../server');
+  for (const [, text] of source.matchAll(/failure\(\d+, '([^']+)'[,)]/g)) assert.ok(VI[text], 'missing Vietnamese for: ' + text);
   const f = await fixture(t);
+  assert.equal((await (await f.call('/api/state', undefined, 'wrong')).json()).error, 'Pair this device first.');
   assert.equal((await (await f.call('/api/state', undefined, 'wrong', { 'X-Deck-Lang': 'en' })).json()).error, 'Pair this device first.');
-  assert.equal((await (await f.call('/api/state', undefined, 'wrong')).json()).error, 'Cần ghép nối thiết bị.');
+  assert.equal((await (await f.call('/api/state', undefined, 'wrong', { 'X-Deck-Lang': 'vi' })).json()).error, 'Cần ghép nối thiết bị.');
 });
 
 test('agentStatus recognises Claude and Codex approval wording and output age', () => {
@@ -313,8 +314,8 @@ test('send types text with Enter into the exact session and returns the new scre
 
 test('send passes Unicode text through unchanged', async t => {
   const f = await sendFixture(t);
-  assert.equal((await f.sendTo({ text: 'Sửa lỗi này nhé 👍' })).status, 200);
-  assert.deepEqual(f.sends()[0].slice(4), ['--text', 'Sửa lỗi này nhé 👍']);
+  assert.equal((await f.sendTo({ text: 'Fix this, naïve café 👍' })).status, 200);
+  assert.deepEqual(f.sends()[0].slice(4), ['--text', 'Fix this, naïve café 👍']);
 });
 
 test('send maps allowlisted keys to terminal input', async t => {
@@ -428,9 +429,9 @@ test('snippets default, save for every device and persist', async t => {
   let saves = 0;
   const f = await fixture(t, { saveConfig: () => { saves++; } });
   assert.deepEqual((await (await f.call('/api/state')).json()).snippets, ['yes', 'continue', 'run the tests']);
-  assert.equal((await f.call('/api/snippets', { list: ['ship it', 'Sửa lỗi'] })).status, 200);
-  assert.deepEqual((await (await f.call('/api/state')).json()).snippets, ['ship it', 'Sửa lỗi']);
-  assert.deepEqual(f.config.snippets, ['ship it', 'Sửa lỗi']);
+  assert.equal((await f.call('/api/snippets', { list: ['ship it', 'Fix it — déjà vu'] })).status, 200);
+  assert.deepEqual((await (await f.call('/api/state')).json()).snippets, ['ship it', 'Fix it — déjà vu']);
+  assert.deepEqual(f.config.snippets, ['ship it', 'Fix it — déjà vu']);
   assert.equal(saves, 1);
 });
 

@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="vi">
+<html lang="en">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><meta name="apple-mobile-web-app-title" content="Orca Deck">
@@ -38,43 +38,43 @@
 <main>
   <section id="pair">
     <h1>Orca Deck</h1>
-    <form id="pairForm"><label for="pin" data-t="pinLabel">Mã ghép nối</label><input id="pin" type="text" inputmode="numeric" pattern="[0-9]{8}" maxlength="8" autocomplete="off" required><button type="submit" class="primary" data-t="connect">Kết nối</button></form>
-    <button type="button" class="icon-button lang-button" data-ta="language" aria-label="Ngôn ngữ"><svg class="icon"><use xlink:href="#i-globe"/></svg><span class="lang-code"></span></button>
+    <form id="pairForm"><label for="pin" data-t="pinLabel">Pairing code</label><input id="pin" type="text" inputmode="numeric" pattern="[0-9]{8}" maxlength="8" autocomplete="off" required><button type="submit" class="primary" data-t="connect">Connect</button></form>
+    <button type="button" class="icon-button lang-button" data-ta="language" aria-label="Language"><svg class="icon"><use xlink:href="#i-globe"/></svg><span class="lang-code"></span></button>
   </section>
   <div id="deck" hidden>
     <header id="bar">
-      <span id="dot" role="img" aria-label="Chưa kết nối"></span>
-      <button id="agentButton" class="agent-button" data-ta="chooseAgent" aria-label="Chọn agent"><span><strong id="agentTitle">Chọn agent</strong><small id="project"></small></span><svg class="icon"><use xlink:href="#i-down"/></svg></button>
-      <button id="soundButton" class="icon-button" data-ta="sound" aria-label="Âm thanh" aria-pressed="true"><svg class="icon"><use xlink:href="#i-bell"/></svg></button>
-      <button id="linksButton" class="icon-button" data-ta="links" aria-label="Đặt liên kết"><svg class="icon"><use xlink:href="#i-link"/></svg></button>
-      <button id="editButton" class="icon-button" data-ta="editLayout" aria-label="Sửa bố cục"><svg class="icon"><use xlink:href="#i-grid"/></svg></button>
+      <span id="dot" role="img" aria-label="Disconnected"></span>
+      <button id="agentButton" class="agent-button" data-ta="chooseAgent" aria-label="Choose agent"><span><strong id="agentTitle">Choose agent</strong><small id="project"></small></span><svg class="icon"><use xlink:href="#i-down"/></svg></button>
+      <button id="soundButton" class="icon-button" data-ta="sound" aria-label="Sound" aria-pressed="true"><svg class="icon"><use xlink:href="#i-bell"/></svg></button>
+      <button id="linksButton" class="icon-button" data-ta="links" aria-label="Set links"><svg class="icon"><use xlink:href="#i-link"/></svg></button>
+      <button id="editButton" class="icon-button" data-ta="editLayout" aria-label="Edit layout"><svg class="icon"><use xlink:href="#i-grid"/></svg></button>
     </header>
     <header id="editBar" hidden>
-      <button id="moveLeft" class="icon-button" data-ta="moveLeft" aria-label="Chuyển trước"><svg class="icon"><use xlink:href="#i-left"/></svg></button>
-      <button id="moveRight" class="icon-button" data-ta="moveRight" aria-label="Chuyển sau"><svg class="icon"><use xlink:href="#i-right"/></svg></button>
-      <button id="toggleKey" class="icon-button" data-ta="toggleKey" aria-label="Ẩn / hiện nút"><svg class="icon"><use xlink:href="#i-eye"/></svg></button>
+      <button id="moveLeft" class="icon-button" data-ta="moveLeft" aria-label="Move earlier"><svg class="icon"><use xlink:href="#i-left"/></svg></button>
+      <button id="moveRight" class="icon-button" data-ta="moveRight" aria-label="Move later"><svg class="icon"><use xlink:href="#i-right"/></svg></button>
+      <button id="toggleKey" class="icon-button" data-ta="toggleKey" aria-label="Hide / show key"><svg class="icon"><use xlink:href="#i-eye"/></svg></button>
       <span class="spacer"></span>
-      <button type="button" class="icon-button lang-button" data-ta="language" aria-label="Ngôn ngữ"><svg class="icon"><use xlink:href="#i-globe"/></svg><span class="lang-code"></span></button>
-      <button id="resetLayout" class="icon-button" data-ta="reset" aria-label="Bố cục mặc định"><svg class="icon"><use xlink:href="#i-reset"/></svg></button>
-      <button id="unpair" class="icon-button danger" data-ta="unpair" aria-label="Ngắt ghép nối"><svg class="icon"><use xlink:href="#i-logout"/></svg></button>
-      <button id="editDone" class="primary" data-t="done">Xong</button>
+      <button type="button" class="icon-button lang-button" data-ta="language" aria-label="Language"><svg class="icon"><use xlink:href="#i-globe"/></svg><span class="lang-code"></span></button>
+      <button id="resetLayout" class="icon-button" data-ta="reset" aria-label="Default layout"><svg class="icon"><use xlink:href="#i-reset"/></svg></button>
+      <button id="unpair" class="icon-button danger" data-ta="unpair" aria-label="Unpair"><svg class="icon"><use xlink:href="#i-logout"/></svg></button>
+      <button id="editDone" class="primary" data-t="done">Done</button>
     </header>
     <section id="request" class="request" hidden>
       <div class="request-heading"><strong id="requestTool"></strong><span id="requestMeta"></span><span id="requestCount" class="badge"></span></div>
-      <label class="sr-only" for="requestSelect" data-t="chooseRequest">Chọn yêu cầu</label><select id="requestSelect"></select>
+      <label class="sr-only" for="requestSelect" data-t="chooseRequest">Choose request</label><select id="requestSelect"></select>
       <pre id="requestInput"></pre>
-      <div id="cardActions" class="card-actions"><button id="cardApprove" class="approve" data-ta="approveOnce" aria-label="Duyệt một lần" disabled>Approve</button><button id="cardReject" class="reject" data-ta="rejectOne" aria-label="Từ chối" disabled>Reject</button></div>
+      <div id="cardActions" class="card-actions"><button id="cardApprove" class="approve" data-ta="approveOnce" aria-label="Approve once" disabled>Approve</button><button id="cardReject" class="reject" data-ta="rejectOne" aria-label="Reject" disabled>Reject</button></div>
     </section>
     <section id="agentsView" class="view" hidden><div id="agentsList" class="list"></div></section>
     <section id="agentView" class="view" hidden>
-      <p id="agentEmpty" class="empty" data-t="pickAgent">Chọn một agent trong Tất cả.</p>
+      <p id="agentEmpty" class="empty" data-t="pickAgent">Pick an agent in Agents.</p>
       <div id="agentBody" class="view" hidden>
         <div class="agent-head">
           <span id="agentBadge"></span><strong id="agentName"></strong>
-          <button id="agentFocus" class="icon-button" data-ta="focusMac" aria-label="Mở trên Mac"><svg class="icon"><use xlink:href="#i-terminal"/></svg></button>
-          <button id="agentPin" class="icon-button" data-ta="pinAs" aria-label="Ghim làm Claude chính"><svg class="icon"><use xlink:href="#i-pin"/></svg></button>
-          <button id="agentPr" class="icon-button" data-ta="openPr" aria-label="Mở PR"><svg class="icon"><use xlink:href="#i-pr"/></svg></button>
-          <button id="agentPreview" class="icon-button" data-ta="openPreview" aria-label="Mở preview"><svg class="icon"><use xlink:href="#i-monitor"/></svg></button>
+          <button id="agentFocus" class="icon-button" data-ta="focusMac" aria-label="Show on Mac"><svg class="icon"><use xlink:href="#i-terminal"/></svg></button>
+          <button id="agentPin" class="icon-button" data-ta="pinAs" aria-label="Pin as main Claude"><svg class="icon"><use xlink:href="#i-pin"/></svg></button>
+          <button id="agentPr" class="icon-button" data-ta="openPr" aria-label="Open PR"><svg class="icon"><use xlink:href="#i-pr"/></svg></button>
+          <button id="agentPreview" class="icon-button" data-ta="openPreview" aria-label="Open preview"><svg class="icon"><use xlink:href="#i-monitor"/></svg></button>
         </div>
         <pre id="agentScreen" class="screen"></pre>
         <div class="screen-bar">
@@ -84,10 +84,10 @@
         <p id="agentNote" class="note" hidden></p>
         <div id="sendKeys" class="send-keys">
           <button type="button" data-key="esc" aria-label="Escape">Esc</button>
-          <button type="button" data-key="up" data-ta="keyUp" aria-label="Lên">↑</button>
-          <button type="button" data-key="down" data-ta="keyDown" aria-label="Xuống">↓</button>
-          <button type="button" data-key="left" data-ta="keyLeft" aria-label="Trái">←</button>
-          <button type="button" data-key="right" data-ta="keyRight" aria-label="Phải">→</button>
+          <button type="button" data-key="up" data-ta="keyUp" aria-label="Up">↑</button>
+          <button type="button" data-key="down" data-ta="keyDown" aria-label="Down">↓</button>
+          <button type="button" data-key="left" data-ta="keyLeft" aria-label="Left">←</button>
+          <button type="button" data-key="right" data-ta="keyRight" aria-label="Right">→</button>
           <button type="button" data-key="tab" aria-label="Tab">Tab</button>
           <button type="button" data-key="y">y</button>
           <button type="button" data-key="n">n</button>
@@ -95,30 +95,30 @@
           <button type="button" data-key="ctrl-c" class="danger" aria-label="Ctrl-C">^C</button>
         </div>
         <div id="snippets" class="chips"></div>
-        <form id="replyForm" class="reply"><label class="sr-only" for="replyText" data-t="reply">Trả lời</label><input id="replyText" type="text" autocomplete="off" autocapitalize="off" autocorrect="off" maxlength="2000"><button id="replySend" type="submit" class="primary" data-t="send">Gửi</button></form>
+        <form id="replyForm" class="reply"><label class="sr-only" for="replyText" data-t="reply">Reply</label><input id="replyText" type="text" autocomplete="off" autocapitalize="off" autocorrect="off" maxlength="2000"><button id="replySend" type="submit" class="primary" data-t="send">Send</button></form>
       </div>
     </section>
-    <section id="keys" class="keys" data-ta="deck" aria-label="Bảng điều khiển">
-      <button id="approve" class="key approve" data-ta="approveOnce" aria-label="Duyệt một lần" disabled><svg class="icon"><use xlink:href="#i-check"/></svg><strong>Approve</strong></button>
-      <button id="reject" class="key reject" data-ta="rejectOne" aria-label="Từ chối" disabled><svg class="icon"><use xlink:href="#i-x"/></svg><strong>Reject</strong></button>
+    <section id="keys" class="keys" data-ta="deck" aria-label="Control deck">
+      <button id="approve" class="key approve" data-ta="approveOnce" aria-label="Approve once" disabled><svg class="icon"><use xlink:href="#i-check"/></svg><strong>Approve</strong></button>
+      <button id="reject" class="key reject" data-ta="rejectOne" aria-label="Reject" disabled><svg class="icon"><use xlink:href="#i-x"/></svg><strong>Reject</strong></button>
       <button id="continue" class="key" disabled><svg class="icon"><use xlink:href="#i-play"/></svg><strong>Continue</strong></button>
       <button id="interrupt" class="key" disabled><svg class="icon"><use xlink:href="#i-stop"/></svg><strong>Interrupt</strong></button>
-      <button id="mainClaude" class="key"><svg class="icon"><use xlink:href="#i-star"/></svg><strong data-t="mainClaude">Claude chính</strong></button>
+      <button id="mainClaude" class="key"><svg class="icon"><use xlink:href="#i-star"/></svg><strong data-t="mainClaude">Main Claude</strong></button>
       <button id="choose" class="key"><svg class="icon"><use xlink:href="#i-swap"/></svg><strong>Agent</strong></button>
-      <button id="pr" class="key" data-ta="openPr" aria-label="Mở PR" disabled><svg class="icon"><use xlink:href="#i-pr"/></svg><strong>PR</strong></button>
-      <button id="preview" class="key" data-ta="openPreview" aria-label="Mở preview" disabled><svg class="icon"><use xlink:href="#i-monitor"/></svg><strong>Preview</strong></button>
+      <button id="pr" class="key" data-ta="openPr" aria-label="Open PR" disabled><svg class="icon"><use xlink:href="#i-pr"/></svg><strong>PR</strong></button>
+      <button id="preview" class="key" data-ta="openPreview" aria-label="Open preview" disabled><svg class="icon"><use xlink:href="#i-monitor"/></svg><strong>Preview</strong></button>
     </section>
     <nav id="tabs" class="tabs" role="tablist">
-      <button class="tab" role="tab" data-view="agents"><svg class="icon"><use xlink:href="#i-list"/></svg><span data-t="tabAgents">Tất cả</span></button>
+      <button class="tab" role="tab" data-view="agents"><svg class="icon"><use xlink:href="#i-list"/></svg><span data-t="tabAgents">Agents</span></button>
       <button class="tab" role="tab" data-view="agent"><svg class="icon"><use xlink:href="#i-terminal"/></svg><span>Agent</span></button>
       <button class="tab" role="tab" data-view="deck"><svg class="icon"><use xlink:href="#i-grid"/></svg><span>Deck</span></button>
     </nav>
   </div>
   <p id="message" role="status" aria-live="polite"></p>
 </main>
-<div id="agentModal" class="modal" hidden><section class="modal-card"><div class="modal-heading"><h2>Agent</h2><button class="icon-button close" data-ta="close" aria-label="Đóng"><svg class="icon"><use xlink:href="#i-x"/></svg></button></div><div id="agentList"></div></section></div>
-<div id="linksModal" class="modal" hidden><section class="modal-card"><div class="modal-heading"><h2 data-t="linksTitle">Liên kết</h2><button class="icon-button close" data-ta="close" aria-label="Đóng"><svg class="icon"><use xlink:href="#i-x"/></svg></button></div><form id="linksForm"><label for="prUrl">PR</label><input id="prUrl" type="url" placeholder="https://github.com/…/pull/…"><label for="previewUrl">Preview</label><input id="previewUrl" type="url" placeholder="http://localhost:3000"><button type="submit" class="primary" data-t="save">Lưu</button></form></section></div>
-<div id="snippetModal" class="modal" hidden><section class="modal-card"><div class="modal-heading"><h2 data-t="editSnippets">Sửa mẫu trả lời</h2><button class="icon-button close" data-ta="close" aria-label="Đóng"><svg class="icon"><use xlink:href="#i-x"/></svg></button></div><form id="snippetForm"><label for="snippetText" data-t="snippetsHelp">Mỗi dòng một mẫu (tối đa 20)</label><textarea id="snippetText" rows="8"></textarea><button type="submit" class="primary" data-t="save">Lưu</button></form></section></div>
+<div id="agentModal" class="modal" hidden><section class="modal-card"><div class="modal-heading"><h2>Agent</h2><button class="icon-button close" data-ta="close" aria-label="Close"><svg class="icon"><use xlink:href="#i-x"/></svg></button></div><div id="agentList"></div></section></div>
+<div id="linksModal" class="modal" hidden><section class="modal-card"><div class="modal-heading"><h2 data-t="linksTitle">Links</h2><button class="icon-button close" data-ta="close" aria-label="Close"><svg class="icon"><use xlink:href="#i-x"/></svg></button></div><form id="linksForm"><label for="prUrl">PR</label><input id="prUrl" type="url" placeholder="https://github.com/…/pull/…"><label for="previewUrl">Preview</label><input id="previewUrl" type="url" placeholder="http://localhost:3000"><button type="submit" class="primary" data-t="save">Save</button></form></section></div>
+<div id="snippetModal" class="modal" hidden><section class="modal-card"><div class="modal-heading"><h2 data-t="editSnippets">Edit snippets</h2><button class="icon-button close" data-ta="close" aria-label="Close"><svg class="icon"><use xlink:href="#i-x"/></svg></button></div><form id="snippetForm"><label for="snippetText" data-t="snippetsHelp">One snippet per line (up to 20)</label><textarea id="snippetText" rows="8"></textarea><button type="submit" class="primary" data-t="save">Save</button></form></section></div>
 <script src="/app.js"></script>
 <script src="/alerts.js"></script>
 <script src="/agents.js"></script>

@@ -29,10 +29,10 @@ def main():
     if args.uninstall:
         launchctl('bootout', domain + '/' + LABEL)
         plist.unlink(missing_ok=True)
-        print('Đã tắt tự khởi động Orca Deck.')
+        print('Orca Deck will no longer start at login.')
         return
     if not args.node or not os.access(args.node, os.X_OK):
-        raise SystemExit('Không tìm thấy Node.js. Chạy lại với --node /đường/dẫn/node.')
+        raise SystemExit('Node.js not found. Run again with --node /path/to/node.')
     node = os.path.abspath(args.node)
     log = root / '.local' / 'deck.log'
     log.parent.mkdir(mode=0o700, exist_ok=True)
@@ -52,9 +52,9 @@ def main():
     launchctl('bootout', domain + '/' + LABEL)  # replace a copy that is already loaded
     plist.write_bytes(plistlib.dumps(agent))
     if launchctl('bootstrap', domain, str(plist)) != 0:
-        raise SystemExit('launchctl không nạp được ' + str(plist))
-    print('Orca Deck sẽ tự chạy khi đăng nhập. Nhật ký: ' + str(log))
-    print('Ghép thiết bị: http://127.0.0.1:8766/pair')
+        raise SystemExit('launchctl could not load ' + str(plist))
+    print('Orca Deck now starts at login. Log: ' + str(log))
+    print('Pair a device: http://127.0.0.1:8766/pair')
 
 
 if __name__ == '__main__':
